@@ -1,0 +1,798 @@
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+* { box-sizing: border-box; }
+
+.db-root {
+  --db-bg: #F4EFE1;
+  --db-panel: #EAE2CE;
+  --db-panel-2: #DFD5BC;
+  --db-line: #C9BC9C;
+  --db-line-soft: #D9CDAD;
+  --db-chalk: #2E2A20;
+  --db-muted: #7A7360;
+  --db-gold: #A8763A;
+  --db-gold-dim: #8A6230;
+  --db-pos: #3E7A52;
+  --db-neg: #A8452F;
+  --db-round: #B3A47D;
+  --db-drafted: #9A8F72;
+
+  font-family: 'Inter', sans-serif;
+  background: var(--db-bg);
+  color: var(--db-chalk);
+  border-radius: 14px;
+  padding: 24px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.db-root .db-mono { font-family: 'IBM Plex Mono', monospace; }
+.db-root .db-display { font-family: 'Oswald', sans-serif; font-weight: 600; letter-spacing: 0.02em; }
+
+.db-root ::selection { background: var(--db-gold); color: var(--db-bg); }
+</style>
+
+<div class="db-root">
+  <h2 style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);">Interactive 2026 PPR fantasy football draft board with VORP rankings by position and per-player notes</h2>
+
+  <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:4px; flex-wrap:wrap; gap:8px;">
+    <div class="db-display" style="font-size:22px; text-transform:uppercase; color:var(--db-chalk);">2026 Draft Board</div>
+    <div class="db-mono" style="font-size:12px; color:var(--db-muted);">12-team superflex &middot; full PPR &middot; VORP ranked</div>
+  </div>
+  <div style="height:1px; background:var(--db-line); margin:14px 0 18px;"></div>
+
+  <div style="border:0.5px solid var(--db-line); border-radius:10px; margin-bottom:18px; overflow:hidden;">
+    <button id="db-general-notes-toggle" class="db-mono" style="width:100%; text-align:left; background:var(--db-panel); border:none; color:var(--db-chalk); padding:10px 14px; font-size:12px; cursor:pointer; display:flex; align-items:center; gap:8px;">
+      <i class="ti ti-chevron-right" id="db-general-notes-chevron" aria-hidden="true" style="font-size:13px; transition:transform 0.15s;"></i>
+      General Notes
+      <span id="db-general-notes-dot" style="width:5px; height:5px; border-radius:50%; background:var(--db-gold); display:none;"></span>
+    </button>
+    <div id="db-general-notes-body" style="display:none; padding:0 14px 14px;">
+      <textarea id="db-general-notes" placeholder="Overall draft strategy, targets, reminders..." style="width:100%; min-height:90px; background:var(--db-bg); border:0.5px solid var(--db-line); color:var(--db-chalk); border-radius:8px; padding:10px 12px; font-family:'Inter',sans-serif; font-size:13px; resize:vertical; outline:none;"></textarea>
+    </div>
+  </div>
+
+  <div id="db-tabs" style="display:flex; gap:6px; margin-bottom:14px; flex-wrap:wrap;"></div>
+
+  <div style="display:flex; gap:8px; margin-bottom:16px;">
+    <input id="db-search" type="text" placeholder="Search player" style="flex:1; background:var(--db-panel); border:0.5px solid var(--db-line); color:var(--db-chalk); padding:9px 12px; border-radius:8px; font-family:'Inter',sans-serif; font-size:13px; outline:none;" />
+    <select id="db-team-filter" class="db-mono" style="background:var(--db-panel); border:0.5px solid var(--db-line); color:var(--db-chalk); padding:9px 10px; border-radius:8px; font-size:12px; cursor:pointer;"></select>
+    <button id="db-sort-btn" class="db-mono" style="background:var(--db-panel); border:0.5px solid var(--db-line); color:var(--db-chalk); padding:9px 14px; border-radius:8px; font-size:12px; cursor:pointer; white-space:nowrap;">Sort: VORP</button>
+  </div>
+
+  <label class="db-mono" style="display:flex; align-items:center; gap:8px; margin-bottom:14px; font-size:12px; color:var(--db-muted); cursor:pointer; width:fit-content;">
+    <input id="db-hide-drafted" type="checkbox" style="accent-color:var(--db-gold); width:14px; height:14px; cursor:pointer;" />
+    Hide drafted players
+  </label>
+
+  <div style="display:flex; gap:8px; align-items:center; margin-bottom:16px; flex-wrap:wrap;">
+    <input id="db-sleeper-id" type="text" placeholder="Sleeper draft ID" style="width:220px; background:var(--db-panel); border:0.5px solid var(--db-line); color:var(--db-chalk); padding:8px 10px; border-radius:8px; font-family:'IBM Plex Mono',monospace; font-size:12px; outline:none;" />
+    <button id="db-sleeper-btn" class="db-mono" style="background:var(--db-panel); border:0.5px solid var(--db-line); color:var(--db-chalk); padding:8px 14px; border-radius:8px; font-size:12px; cursor:pointer; white-space:nowrap;">Connect to Sleeper</button>
+    <button id="db-refresh-btn" class="db-mono" style="background:var(--db-panel); border:0.5px solid var(--db-line); color:var(--db-chalk); padding:8px 14px; border-radius:8px; font-size:12px; cursor:pointer; white-space:nowrap;">Refresh Now</button>
+    <span id="db-sleeper-status" class="db-mono" style="font-size:11px; color:var(--db-muted);"></span>
+    <button id="db-reset-btn" class="db-mono" style="margin-left:auto; background:transparent; border:0.5px solid var(--db-neg); color:var(--db-neg); padding:8px 14px; border-radius:8px; font-size:12px; cursor:pointer; white-space:nowrap;">Reset Draft</button>
+  </div>
+
+  <div style="border:0.5px solid var(--db-line); border-radius:10px; margin-bottom:18px; overflow:hidden;">
+    <button id="db-grade-toggle" class="db-mono" style="width:100%; text-align:left; background:var(--db-panel); border:none; color:var(--db-chalk); padding:10px 14px; font-size:12px; cursor:pointer; display:flex; align-items:center; gap:8px; font-weight:600;">
+      <i class="ti ti-chevron-right" id="db-grade-chevron" aria-hidden="true" style="font-size:13px; transition:transform 0.15s;"></i>
+      My Draft Grade
+    </button>
+    <div id="db-grade-body" style="display:none; padding:14px;">
+      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:14px;">
+        <input id="db-my-slot" type="number" min="1" max="12" placeholder="My slot #" style="width:100px; background:var(--db-panel); border:0.5px solid var(--db-line); color:var(--db-chalk); padding:8px 10px; border-radius:8px; font-family:'IBM Plex Mono',monospace; font-size:12px; outline:none;" />
+        <button id="db-grade-btn" class="db-mono" style="background:var(--db-gold); border:none; color:var(--db-bg); padding:8px 14px; border-radius:8px; font-size:12px; cursor:pointer; font-weight:600; white-space:nowrap;">Grade My Draft</button>
+        <span id="db-grade-status" class="db-mono" style="font-size:11px; color:var(--db-muted);"></span>
+      </div>
+      <div id="db-grade-results" style="display:none;"></div>
+    </div>
+  </div>
+
+  <div id="db-table"></div>
+
+  <div id="db-empty" style="display:none; text-align:center; padding:40px 0; color:var(--db-muted); font-size:13px;">No players match that search.</div>
+</div>
+
+<script>
+(function() {
+  const PLAYERS = [{"Player":"Josh Allen","Team":"BUF","POS":"QB","FPTS":372.2,"VORP":97.7,"FLOOR":9.6,"CEILING":36.8,"ADP_RD":1},{"Player":"Drake Maye","Team":"NE","POS":"QB","FPTS":326.9,"VORP":52.4,"FLOOR":14.5,"CEILING":24.8,"ADP_RD":1},{"Player":"Jayden Daniels","Team":"WAS","POS":"QB","FPTS":325.5,"VORP":51.0,"FLOOR":12.0,"CEILING":24.3,"ADP_RD":2},{"Player":"Lamar Jackson","Team":"BAL","POS":"QB","FPTS":325.0,"VORP":50.5,"FLOOR":5.9,"CEILING":31.1,"ADP_RD":1},{"Player":"Jalen Hurts","Team":"PHI","POS":"QB","FPTS":320.6,"VORP":46.1,"FLOOR":10.2,"CEILING":27.3,"ADP_RD":2},{"Player":"Jaxson Dart","Team":"NYG","POS":"QB","FPTS":311.8,"VORP":37.3,"FLOOR":0.1,"CEILING":28.6,"ADP_RD":3},{"Player":"Joe Burrow","Team":"CIN","POS":"QB","FPTS":310.9,"VORP":36.4,"FLOOR":7.2,"CEILING":27.2,"ADP_RD":2},{"Player":"Brock Purdy","Team":"SF","POS":"QB","FPTS":307.4,"VORP":32.9,"FLOOR":6.3,"CEILING":29.5,"ADP_RD":3},{"Player":"Dak Prescott","Team":"DAL","POS":"QB","FPTS":306.1,"VORP":31.6,"FLOOR":7.2,"CEILING":26.9,"ADP_RD":3},{"Player":"Trevor Lawrence","Team":"JAC","POS":"QB","FPTS":304.0,"VORP":29.5,"FLOOR":9.1,"CEILING":25.4,"ADP_RD":3},{"Player":"Patrick Mahomes II","Team":"KC","POS":"QB","FPTS":303.6,"VORP":29.1,"FLOOR":9.9,"CEILING":25.2,"ADP_RD":4},{"Player":"Justin Herbert","Team":"LAC","POS":"QB","FPTS":300.2,"VORP":25.7,"FLOOR":11.1,"CEILING":27.5,"ADP_RD":2},{"Player":"Caleb Williams","Team":"CHI","POS":"QB","FPTS":298.7,"VORP":24.2,"FLOOR":9.4,"CEILING":25.1,"ADP_RD":2},{"Player":"Bo Nix","Team":"DEN","POS":"QB","FPTS":297.9,"VORP":23.4,"FLOOR":8.9,"CEILING":26.5,"ADP_RD":4},{"Player":"Matthew Stafford","Team":"LAR","POS":"QB","FPTS":294.0,"VORP":19.5,"FLOOR":10.3,"CEILING":23.0,"ADP_RD":4},{"Player":"Jared Goff","Team":"DET","POS":"QB","FPTS":287.4,"VORP":12.9,"FLOOR":10.3,"CEILING":25.1,"ADP_RD":4},{"Player":"Tyler Shough","Team":"NO","POS":"QB","FPTS":286.4,"VORP":11.9,"FLOOR":5.1,"CEILING":25.5,"ADP_RD":5},{"Player":"Baker Mayfield","Team":"TB","POS":"QB","FPTS":282.5,"VORP":8.0,"FLOOR":8.6,"CEILING":23.6,"ADP_RD":4},{"Player":"Kyler Murray","Team":"MIN","POS":"QB","FPTS":280.3,"VORP":5.8,"FLOOR":14.9,"CEILING":18.5,"ADP_RD":4},{"Player":"Daniel Jones","Team":"IND","POS":"QB","FPTS":274.5,"VORP":0.0,"FLOOR":10.3,"CEILING":21.4,"ADP_RD":6},{"Player":"Malik Willis","Team":"MIA","POS":"QB","FPTS":269.7,"VORP":-4.8,"FLOOR":2.7,"CEILING":32.3,"ADP_RD":5},{"Player":"Jordan Love","Team":"GB","POS":"QB","FPTS":267.7,"VORP":-6.8,"FLOOR":7.4,"CEILING":26.2,"ADP_RD":5},{"Player":"Sam Darnold","Team":"SEA","POS":"QB","FPTS":266.4,"VORP":-8.1,"FLOOR":5.3,"CEILING":27.4,"ADP_RD":6},{"Player":"C.J. Stroud","Team":"HOU","POS":"QB","FPTS":260.7,"VORP":-13.8,"FLOOR":9.1,"CEILING":23.6,"ADP_RD":6},{"Player":"Bryce Young","Team":"CAR","POS":"QB","FPTS":249.0,"VORP":-25.5,"FLOOR":6.0,"CEILING":23.6,"ADP_RD":7},{"Player":"Geno Smith","Team":"NYJ","POS":"QB","FPTS":233.2,"VORP":-41.3,"FLOOR":4.4,"CEILING":26.8,"ADP_RD":9},{"Player":"Jacoby Brissett","Team":"ARI","POS":"QB","FPTS":232.4,"VORP":-42.1,"FLOOR":2.8,"CEILING":18.1,"ADP_RD":8},{"Player":"Cam Ward","Team":"TEN","POS":"QB","FPTS":232.2,"VORP":-42.3,"FLOOR":7.0,"CEILING":21.7,"ADP_RD":7},{"Player":"Aaron Rodgers","Team":"PIT","POS":"QB","FPTS":224.5,"VORP":-50.0,"FLOOR":6.4,"CEILING":20.5,"ADP_RD":8},{"Player":"Fernando Mendoza","Team":"LV","POS":"QB","FPTS":193.1,"VORP":-81.4,"FLOOR":5.3,"CEILING":17.4,"ADP_RD":9},{"Player":"Tua Tagovailoa","Team":"ATL","POS":"QB","FPTS":164.5,"VORP":-110.0,"FLOOR":4.1,"CEILING":18.1,"ADP_RD":10},{"Player":"Shedeur Sanders","Team":"CLE","POS":"QB","FPTS":131.8,"VORP":-142.7,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Deshaun Watson","Team":"CLE","POS":"QB","FPTS":108.0,"VORP":-166.5,"FLOOR":null,"CEILING":null,"ADP_RD":13},{"Player":"Michael Penix Jr.","Team":"ATL","POS":"QB","FPTS":83.6,"VORP":-190.9,"FLOOR":null,"CEILING":null,"ADP_RD":15},{"Player":"Kirk Cousins","Team":"LV","POS":"QB","FPTS":47.2,"VORP":-227.3,"FLOOR":null,"CEILING":null,"ADP_RD":14},{"Player":"Ty Simpson","Team":"LAR","POS":"QB","FPTS":23.4,"VORP":-251.1,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Carson Beck","Team":"ARI","POS":"QB","FPTS":23.1,"VORP":-251.4,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"J.J. McCarthy","Team":"MIN","POS":"QB","FPTS":22.5,"VORP":-252.0,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Anthony Richardson Sr.","Team":"IND","POS":"QB","FPTS":21.0,"VORP":-253.5,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Marcus Mariota","Team":"WAS","POS":"QB","FPTS":18.2,"VORP":-256.3,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Riley Leonard","Team":"IND","POS":"QB","FPTS":13.8,"VORP":-260.7,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Davis Mills","Team":"HOU","POS":"QB","FPTS":12.7,"VORP":-261.8,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Justin Fields","Team":"KC","POS":"QB","FPTS":12.0,"VORP":-262.5,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Shane Buechele","Team":"BUF","POS":"QB","FPTS":12.0,"VORP":-262.5,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Jameis Winston","Team":"NYG","POS":"QB","FPTS":11.7,"VORP":-262.8,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Quinn Ewers","Team":"MIA","POS":"QB","FPTS":11.5,"VORP":-263.0,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Tyson Bagent","Team":"CHI","POS":"QB","FPTS":11.4,"VORP":-263.1,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Will Levis","Team":"TEN","POS":"QB","FPTS":11.4,"VORP":-263.1,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Jarrett Stidham","Team":"DEN","POS":"QB","FPTS":11.3,"VORP":-263.2,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Jake Browning","Team":"TB","POS":"QB","FPTS":11.3,"VORP":-263.2,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Teddy Bridgewater","Team":"DET","POS":"QB","FPTS":11.0,"VORP":-263.5,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Tyrod Taylor","Team":"GB","POS":"QB","FPTS":10.9,"VORP":-263.6,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Tommy DeVito","Team":"NE","POS":"QB","FPTS":10.6,"VORP":-263.9,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Tyler Huntley","Team":"BAL","POS":"QB","FPTS":10.6,"VORP":-263.9,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Mac Jones","Team":"SF","POS":"QB","FPTS":10.5,"VORP":-264.0,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Trey Lance","Team":"LAC","POS":"QB","FPTS":10.4,"VORP":-264.1,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Tanner McKee","Team":"PHI","POS":"QB","FPTS":10.3,"VORP":-264.2,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Joe Flacco","Team":"CIN","POS":"QB","FPTS":10.3,"VORP":-264.2,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Kenny Pickett","Team":"CAR","POS":"QB","FPTS":10.2,"VORP":-264.3,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Spencer Rattler","Team":"NO","POS":"QB","FPTS":10.2,"VORP":-264.3,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Sam Howell","Team":"DAL","POS":"QB","FPTS":10.2,"VORP":-264.3,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Drew Lock","Team":"SEA","POS":"QB","FPTS":10.0,"VORP":-264.5,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Andy Dalton","Team":"PHI","POS":"QB","FPTS":9.9,"VORP":-264.6,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Behren Morton","Team":"NE","POS":"QB","FPTS":9.8,"VORP":-264.7,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Nick Mullens","Team":"JAC","POS":"QB","FPTS":9.8,"VORP":-264.7,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Chris Oladokun","Team":"KC","POS":"QB","FPTS":9.7,"VORP":-264.8,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Gardner Minshew II","Team":"ARI","POS":"QB","FPTS":9.7,"VORP":-264.8,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Cade Klubnik","Team":"NYJ","POS":"QB","FPTS":9.4,"VORP":-265.1,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Drew Allar","Team":"PIT","POS":"QB","FPTS":9.3,"VORP":-265.2,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Adrian Martinez","Team":"SF","POS":"QB","FPTS":9.3,"VORP":-265.2,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Garrett Nussmeier","Team":"KC","POS":"QB","FPTS":9.2,"VORP":-265.3,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Cole Payton","Team":"PHI","POS":"QB","FPTS":9.2,"VORP":-265.3,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Kyle Allen","Team":"BUF","POS":"QB","FPTS":9.1,"VORP":-265.4,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Mitchell Trubisky","Team":"TEN","POS":"QB","FPTS":9.0,"VORP":-265.5,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Jalen Milroe","Team":"SEA","POS":"QB","FPTS":9.0,"VORP":-265.5,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Joe Milton III","Team":"DAL","POS":"QB","FPTS":8.5,"VORP":-266.0,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Will Howard","Team":"PIT","POS":"QB","FPTS":6.7,"VORP":-267.8,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Mason Rudolph","Team":"PIT","POS":"QB","FPTS":5.5,"VORP":-269.0,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Brady Cook","Team":"NYJ","POS":"QB","FPTS":4.9,"VORP":-269.6,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Josh Johnson","Team":"CIN","POS":"QB","FPTS":0.0,"VORP":-274.5,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Stetson Bennett IV","Team":"LAR","POS":"QB","FPTS":0.0,"VORP":-274.5,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Aidan O'Connell","Team":"LV","POS":"QB","FPTS":0.0,"VORP":-274.5,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Jahmyr Gibbs","Team":"DET","POS":"RB","FPTS":372.6,"VORP":186.7,"FLOOR":7.2,"CEILING":38.1,"ADP_RD":1},{"Player":"Bijan Robinson","Team":"ATL","POS":"RB","FPTS":372.0,"VORP":186.1,"FLOOR":8.6,"CEILING":32.6,"ADP_RD":1},{"Player":"Christian McCaffrey","Team":"SF","POS":"RB","FPTS":334.8,"VORP":148.9,"FLOOR":11.3,"CEILING":27.8,"ADP_RD":1},{"Player":"Jonathan Taylor","Team":"IND","POS":"RB","FPTS":312.4,"VORP":126.5,"FLOOR":7.1,"CEILING":30.6,"ADP_RD":2},{"Player":"De'Von Achane","Team":"MIA","POS":"RB","FPTS":292.0,"VORP":106.1,"FLOOR":12.9,"CEILING":24.3,"ADP_RD":3},{"Player":"Chase Brown","Team":"CIN","POS":"RB","FPTS":279.2,"VORP":93.3,"FLOOR":8.6,"CEILING":26.6,"ADP_RD":3},{"Player":"Ashton Jeanty","Team":"LV","POS":"RB","FPTS":276.8,"VORP":90.9,"FLOOR":6.9,"CEILING":31.2,"ADP_RD":2},{"Player":"Derrick Henry","Team":"BAL","POS":"RB","FPTS":273.1,"VORP":87.2,"FLOOR":8.5,"CEILING":24.8,"ADP_RD":3},{"Player":"James Cook III","Team":"BUF","POS":"RB","FPTS":270.2,"VORP":84.3,"FLOOR":6.4,"CEILING":25.3,"ADP_RD":2},{"Player":"Saquon Barkley","Team":"PHI","POS":"RB","FPTS":266.1,"VORP":80.2,"FLOOR":6.7,"CEILING":21.3,"ADP_RD":3},{"Player":"Omarion Hampton","Team":"LAC","POS":"RB","FPTS":263.5,"VORP":77.6,"FLOOR":6.9,"CEILING":26.1,"ADP_RD":2},{"Player":"Josh Jacobs","Team":"GB","POS":"RB","FPTS":257.0,"VORP":71.1,"FLOOR":4.1,"CEILING":27.1,"ADP_RD":5},{"Player":"Jeremiyah Love","Team":"ARI","POS":"RB","FPTS":255.3,"VORP":69.4,"FLOOR":5.4,"CEILING":26.3,"ADP_RD":4},{"Player":"Breece Hall","Team":"NYJ","POS":"RB","FPTS":253.5,"VORP":67.6,"FLOOR":6.6,"CEILING":23.2,"ADP_RD":4},{"Player":"Kenneth Walker III","Team":"KC","POS":"RB","FPTS":251.2,"VORP":65.3,"FLOOR":5.7,"CEILING":25.3,"ADP_RD":3},{"Player":"Cam Skattebo","Team":"NYG","POS":"RB","FPTS":244.4,"VORP":58.5,"FLOOR":7.1,"CEILING":23.6,"ADP_RD":5},{"Player":"Kyren Williams","Team":"LAR","POS":"RB","FPTS":239.9,"VORP":54.0,"FLOOR":8.6,"CEILING":20.1,"ADP_RD":5},{"Player":"Javonte Williams","Team":"DAL","POS":"RB","FPTS":233.9,"VORP":48.0,"FLOOR":7.1,"CEILING":20.6,"ADP_RD":5},{"Player":"Travis Etienne Jr.","Team":"NO","POS":"RB","FPTS":232.0,"VORP":46.1,"FLOOR":5.4,"CEILING":19.0,"ADP_RD":6},{"Player":"Bucky Irving","Team":"TB","POS":"RB","FPTS":224.0,"VORP":38.1,"FLOOR":7.6,"CEILING":17.9,"ADP_RD":7},{"Player":"D'Andre Swift","Team":"CHI","POS":"RB","FPTS":222.7,"VORP":36.8,"FLOOR":6.8,"CEILING":20.4,"ADP_RD":6},{"Player":"Quinshon Judkins","Team":"CLE","POS":"RB","FPTS":210.0,"VORP":24.1,"FLOOR":4.8,"CEILING":20.4,"ADP_RD":6},{"Player":"Bhayshul Tuten","Team":"JAC","POS":"RB","FPTS":208.4,"VORP":22.5,"FLOOR":2.8,"CEILING":24.7,"ADP_RD":6},{"Player":"TreVeyon Henderson","Team":"NE","POS":"RB","FPTS":201.6,"VORP":15.7,"FLOOR":3.6,"CEILING":28.2,"ADP_RD":7},{"Player":"Jaylen Warren","Team":"PIT","POS":"RB","FPTS":194.7,"VORP":8.8,"FLOOR":6.8,"CEILING":15.7,"ADP_RD":8},{"Player":"David Montgomery","Team":"HOU","POS":"RB","FPTS":192.0,"VORP":6.1,"FLOOR":3.9,"CEILING":18.3,"ADP_RD":7},{"Player":"Tony Pollard","Team":"TEN","POS":"RB","FPTS":191.0,"VORP":5.1,"FLOOR":6.2,"CEILING":16.6,"ADP_RD":8},{"Player":"Jadarian Price","Team":"SEA","POS":"RB","FPTS":189.6,"VORP":3.7,"FLOOR":4.0,"CEILING":19.6,"ADP_RD":7},{"Player":"Rico Dowdle","Team":"PIT","POS":"RB","FPTS":187.8,"VORP":1.9,"FLOOR":2.9,"CEILING":25.9,"ADP_RD":9},{"Player":"Chuba Hubbard","Team":"CAR","POS":"RB","FPTS":186.4,"VORP":0.5,"FLOOR":3.4,"CEILING":24.1,"ADP_RD":9},{"Player":"Rhamondre Stevenson","Team":"NE","POS":"RB","FPTS":185.9,"VORP":0.0,"FLOOR":2.4,"CEILING":21.7,"ADP_RD":9},{"Player":"RJ Harvey","Team":"DEN","POS":"RB","FPTS":177.9,"VORP":-8.0,"FLOOR":3.5,"CEILING":19.0,"ADP_RD":10},{"Player":"J.K. Dobbins","Team":"DEN","POS":"RB","FPTS":170.6,"VORP":-15.3,"FLOOR":5.7,"CEILING":13.3,"ADP_RD":10},{"Player":"Kenny Gainwell","Team":"TB","POS":"RB","FPTS":168.3,"VORP":-17.6,"FLOOR":2.7,"CEILING":19.8,"ADP_RD":null},{"Player":"Aaron Jones Sr.","Team":"MIN","POS":"RB","FPTS":168.1,"VORP":-17.8,"FLOOR":4.5,"CEILING":15.7,"ADP_RD":12},{"Player":"Rachaad White","Team":"WAS","POS":"RB","FPTS":167.2,"VORP":-18.7,"FLOOR":3.7,"CEILING":18.5,"ADP_RD":10},{"Player":"Kyle Monangai","Team":"CHI","POS":"RB","FPTS":155.9,"VORP":-30.0,"FLOOR":2.4,"CEILING":19.2,"ADP_RD":11},{"Player":"Jonathon Brooks","Team":"CAR","POS":"RB","FPTS":144.6,"VORP":-41.3,"FLOOR":3.1,"CEILING":14.9,"ADP_RD":null},{"Player":"Jacory Croskey-Merritt","Team":"WAS","POS":"RB","FPTS":143.6,"VORP":-42.3,"FLOOR":2.4,"CEILING":18.8,"ADP_RD":12},{"Player":"Jordan Mason","Team":"MIN","POS":"RB","FPTS":138.5,"VORP":-47.4,"FLOOR":2.5,"CEILING":12.3,"ADP_RD":11},{"Player":"Blake Corum","Team":"LAR","POS":"RB","FPTS":136.6,"VORP":-49.3,"FLOOR":1.9,"CEILING":15.1,"ADP_RD":11},{"Player":"Tyjae Spears","Team":"TEN","POS":"RB","FPTS":136.4,"VORP":-49.5,"FLOOR":2.1,"CEILING":14.7,"ADP_RD":14},{"Player":"Alvin Kamara","Team":"NO","POS":"RB","FPTS":131.4,"VORP":-54.5,"FLOOR":3.0,"CEILING":12.2,"ADP_RD":14},{"Player":"Woody Marks","Team":"HOU","POS":"RB","FPTS":124.4,"VORP":-61.5,"FLOOR":2.1,"CEILING":12.8,"ADP_RD":13},{"Player":"Zach Charbonnet","Team":"SEA","POS":"RB","FPTS":123.1,"VORP":-62.8,"FLOOR":2.5,"CEILING":12.2,"ADP_RD":null},{"Player":"Tyrone Tracy Jr.","Team":"NYG","POS":"RB","FPTS":120.0,"VORP":-65.9,"FLOOR":3.1,"CEILING":14.5,"ADP_RD":12},{"Player":"Justice Hill","Team":"BAL","POS":"RB","FPTS":116.3,"VORP":-69.6,"FLOOR":-0.0,"CEILING":11.9,"ADP_RD":16},{"Player":"Isiah Pacheco","Team":"DET","POS":"RB","FPTS":116.0,"VORP":-69.9,"FLOOR":3.1,"CEILING":12.9,"ADP_RD":14},{"Player":"Dylan Sampson","Team":"CLE","POS":"RB","FPTS":106.3,"VORP":-79.6,"FLOOR":0.5,"CEILING":15.1,"ADP_RD":15},{"Player":"Samaje Perine","Team":"CIN","POS":"RB","FPTS":96.3,"VORP":-89.6,"FLOOR":0.2,"CEILING":11.5,"ADP_RD":19},{"Player":"Ty Johnson","Team":"BUF","POS":"RB","FPTS":96.3,"VORP":-89.6,"FLOOR":0.6,"CEILING":11.5,"ADP_RD":20},{"Player":"Tyler Allgeier","Team":"ARI","POS":"RB","FPTS":95.3,"VORP":-90.6,"FLOOR":1.2,"CEILING":10.9,"ADP_RD":14},{"Player":"Chris Rodriguez Jr.","Team":"JAC","POS":"RB","FPTS":94.8,"VORP":-91.1,"FLOOR":0.7,"CEILING":10.0,"ADP_RD":13},{"Player":"AJ Dillon","Team":"CAR","POS":"RB","FPTS":94.5,"VORP":-91.4,"FLOOR":4.0,"CEILING":7.1,"ADP_RD":null},{"Player":"Brian Robinson Jr.","Team":"ATL","POS":"RB","FPTS":93.1,"VORP":-92.8,"FLOOR":1.6,"CEILING":11.6,"ADP_RD":15},{"Player":"Jordan James","Team":"SF","POS":"RB","FPTS":91.7,"VORP":-94.2,"FLOOR":1.9,"CEILING":9.5,"ADP_RD":null},{"Player":"Braelon Allen","Team":"NYJ","POS":"RB","FPTS":86.0,"VORP":-99.9,"FLOOR":1.0,"CEILING":9.0,"ADP_RD":null},{"Player":"Emari Demercado","Team":"KC","POS":"RB","FPTS":82.6,"VORP":-103.3,"FLOOR":0.0,"CEILING":10.0,"ADP_RD":null},{"Player":"Mike Washington Jr.","Team":"LV","POS":"RB","FPTS":77.7,"VORP":-108.2,"FLOOR":1.6,"CEILING":8.0,"ADP_RD":null},{"Player":"Kaelon Black","Team":"SF","POS":"RB","FPTS":72.9,"VORP":-113.0,"FLOOR":1.5,"CEILING":7.5,"ADP_RD":18},{"Player":"Keaton Mitchell","Team":"LAC","POS":"RB","FPTS":70.7,"VORP":-115.2,"FLOOR":0.4,"CEILING":7.4,"ADP_RD":null},{"Player":"Tank Bigsby","Team":"PHI","POS":"RB","FPTS":67.3,"VORP":-118.6,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Chris Brooks","Team":"GB","POS":"RB","FPTS":66.9,"VORP":-119.0,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Adam Randall","Team":"BAL","POS":"RB","FPTS":66.1,"VORP":-119.8,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Malik Davis","Team":"DAL","POS":"RB","FPTS":65.7,"VORP":-120.2,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"MarShawn Lloyd","Team":"GB","POS":"RB","FPTS":64.5,"VORP":-121.4,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"James Conner","Team":"ARI","POS":"RB","FPTS":61.5,"VORP":-124.4,"FLOOR":null,"CEILING":null,"ADP_RD":19},{"Player":"Kimani Vidal","Team":"LAC","POS":"RB","FPTS":61.1,"VORP":-124.8,"FLOOR":null,"CEILING":null,"ADP_RD":18},{"Player":"Kyle Juszczyk","Team":"SF","POS":"RB","FPTS":54.8,"VORP":-131.1,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Emanuel Wilson","Team":"SEA","POS":"RB","FPTS":51.2,"VORP":-134.7,"FLOOR":null,"CEILING":null,"ADP_RD":22},{"Player":"Jaylen Wright","Team":"MIA","POS":"RB","FPTS":50.6,"VORP":-135.3,"FLOOR":null,"CEILING":null,"ADP_RD":20},{"Player":"Jawhar Jordan","Team":"HOU","POS":"RB","FPTS":50.3,"VORP":-135.6,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Jaydon Blue","Team":"DAL","POS":"RB","FPTS":46.5,"VORP":-139.4,"FLOOR":null,"CEILING":null,"ADP_RD":16},{"Player":"LeQuint Allen Jr.","Team":"JAC","POS":"RB","FPTS":45.8,"VORP":-140.1,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Isaiah Davis","Team":"NYJ","POS":"RB","FPTS":43.3,"VORP":-142.6,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"George Holani","Team":"SEA","POS":"RB","FPTS":41.1,"VORP":-144.8,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Ty Chandler","Team":"NO","POS":"RB","FPTS":37.6,"VORP":-148.3,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"DJ Giddens","Team":"IND","POS":"RB","FPTS":35.9,"VORP":-150.0,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Ray Davis","Team":"BUF","POS":"RB","FPTS":35.8,"VORP":-150.1,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Sean Tucker","Team":"TB","POS":"RB","FPTS":35.2,"VORP":-150.7,"FLOOR":null,"CEILING":null,"ADP_RD":18},{"Player":"Frank Gore Jr.","Team":"BUF","POS":"RB","FPTS":35.0,"VORP":-150.9,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Ollie Gordon II","Team":"MIA","POS":"RB","FPTS":34.6,"VORP":-151.3,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Emmett Johnson","Team":"KC","POS":"RB","FPTS":34.5,"VORP":-151.4,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Roschon Johnson","Team":"CHI","POS":"RB","FPTS":34.3,"VORP":-151.6,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Jonah Coleman","Team":"DEN","POS":"RB","FPTS":32.7,"VORP":-153.2,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Brashard Smith","Team":"KC","POS":"RB","FPTS":32.6,"VORP":-153.3,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Phil Mafah","Team":"DAL","POS":"RB","FPTS":27.6,"VORP":-158.3,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Will Shipley","Team":"PHI","POS":"RB","FPTS":27.5,"VORP":-158.4,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Jeremy McNichols","Team":"WAS","POS":"RB","FPTS":27.3,"VORP":-158.6,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Elijah Mitchell","Team":"PHI","POS":"RB","FPTS":26.1,"VORP":-159.8,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Jam Miller","Team":"NE","POS":"RB","FPTS":26.1,"VORP":-159.8,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Hunter Luepke","Team":"DAL","POS":"RB","FPTS":25.0,"VORP":-160.9,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Demond Claiborne","Team":"MIN","POS":"RB","FPTS":23.6,"VORP":-162.3,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Audric Estime","Team":"NO","POS":"RB","FPTS":23.6,"VORP":-162.3,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Salvon Ahmed","Team":"CHI","POS":"RB","FPTS":23.4,"VORP":-162.5,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Jarquez Hunter","Team":"LAR","POS":"RB","FPTS":23.2,"VORP":-162.7,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Seth McGowan","Team":"IND","POS":"RB","FPTS":23.2,"VORP":-162.7,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Israel Abanikanda","Team":"DAL","POS":"RB","FPTS":23.1,"VORP":-162.8,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Donovan Edwards","Team":"MIA","POS":"RB","FPTS":22.9,"VORP":-163.0,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Carlos Washington Jr.","Team":"MIA","POS":"RB","FPTS":22.9,"VORP":-163.0,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Najee Harris","Team":"LAC","POS":"RB","FPTS":22.4,"VORP":-163.5,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Dameon Pierce","Team":"PHI","POS":"RB","FPTS":22.1,"VORP":-163.8,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Kaytron Allen","Team":"WAS","POS":"RB","FPTS":21.5,"VORP":-164.4,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Devin Singletary","Team":"NYG","POS":"RB","FPTS":19.8,"VORP":-166.1,"FLOOR":null,"CEILING":null,"ADP_RD":31},{"Player":"Nicholas Singleton","Team":"TEN","POS":"RB","FPTS":19.7,"VORP":-166.2,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Devin Neal","Team":"NO","POS":"RB","FPTS":19.3,"VORP":-166.6,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Jerome Ford","Team":"WAS","POS":"RB","FPTS":19.1,"VORP":-166.8,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Tyler Badie","Team":"DEN","POS":"RB","FPTS":19.1,"VORP":-166.8,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Tahj Brooks","Team":"CIN","POS":"RB","FPTS":18.3,"VORP":-167.6,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Alec Ingold","Team":"LAC","POS":"RB","FPTS":16.4,"VORP":-169.5,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Michael Burton","Team":"CLE","POS":"RB","FPTS":16.4,"VORP":-169.5,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Trevor Etienne","Team":"CAR","POS":"RB","FPTS":14.9,"VORP":-171.0,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Isaac Guerendo","Team":"SF","POS":"RB","FPTS":14.9,"VORP":-171.0,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Andrew Beck","Team":"NYJ","POS":"RB","FPTS":14.8,"VORP":-171.1,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Adam Prentice","Team":"DEN","POS":"RB","FPTS":10.5,"VORP":-175.4,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Connor Heyward","Team":"LV","POS":"RB","FPTS":10.2,"VORP":-175.7,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Max Bredeson","Team":"MIN","POS":"RB","FPTS":9.6,"VORP":-176.3,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Riley Nowakowski","Team":"PIT","POS":"RB","FPTS":8.1,"VORP":-177.8,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Reggie Gilliam","Team":"NE","POS":"RB","FPTS":7.9,"VORP":-178.0,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Patrick Ricard","Team":"NYG","POS":"RB","FPTS":7.4,"VORP":-178.5,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Kendre Miller","Team":"NO","POS":"RB","FPTS":7.2,"VORP":-178.7,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Kaleb Johnson","Team":"PIT","POS":"RB","FPTS":4.8,"VORP":-181.1,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"British Brooks","Team":"HOU","POS":"RB","FPTS":2.4,"VORP":-183.5,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"DeeJay Dallas","Team":"JAC","POS":"RB","FPTS":0.0,"VORP":-185.9,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Kene Nwangwu","Team":"NYJ","POS":"RB","FPTS":0.0,"VORP":-185.9,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Bam Knight","Team":"ARI","POS":"RB","FPTS":0.0,"VORP":-185.9,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Trey Benson","Team":"ARI","POS":"RB","FPTS":0.0,"VORP":-185.9,"FLOOR":null,"CEILING":null,"ADP_RD":27},{"Player":"Jacob Saylors","Team":"DET","POS":"RB","FPTS":0.0,"VORP":-185.9,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Zavier Scott","Team":"MIN","POS":"RB","FPTS":0.0,"VORP":-185.9,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Rasheen Ali","Team":"BAL","POS":"RB","FPTS":0.0,"VORP":-185.9,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Dylan Laube","Team":"LV","POS":"RB","FPTS":0.0,"VORP":-185.9,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Chris Collier","Team":"LV","POS":"RB","FPTS":0.0,"VORP":-185.9,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Josh Williams","Team":"TB","POS":"RB","FPTS":0.0,"VORP":-185.9,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Trey McBride","Team":"ARI","POS":"TE","FPTS":254.3,"VORP":90.9,"FLOOR":8.1,"CEILING":22.8,"ADP_RD":2},{"Player":"Brock Bowers","Team":"LV","POS":"TE","FPTS":243.8,"VORP":80.4,"FLOOR":8.6,"CEILING":21.1,"ADP_RD":1},{"Player":"Colston Loveland","Team":"CHI","POS":"TE","FPTS":209.3,"VORP":45.9,"FLOOR":3.8,"CEILING":27.7,"ADP_RD":3},{"Player":"Tyler Warren","Team":"IND","POS":"TE","FPTS":202.2,"VORP":38.8,"FLOOR":6.0,"CEILING":19.4,"ADP_RD":4},{"Player":"Kyle Pitts Sr.","Team":"ATL","POS":"TE","FPTS":195.6,"VORP":32.2,"FLOOR":3.8,"CEILING":17.0,"ADP_RD":7},{"Player":"Harold Fannin Jr.","Team":"CLE","POS":"TE","FPTS":188.5,"VORP":25.1,"FLOOR":4.8,"CEILING":18.0,"ADP_RD":7},{"Player":"Sam LaPorta","Team":"DET","POS":"TE","FPTS":183.5,"VORP":20.1,"FLOOR":4.9,"CEILING":18.6,"ADP_RD":8},{"Player":"Travis Kelce","Team":"KC","POS":"TE","FPTS":181.8,"VORP":18.4,"FLOOR":3.0,"CEILING":19.0,"ADP_RD":9},{"Player":"Dallas Goedert","Team":"PHI","POS":"TE","FPTS":179.3,"VORP":15.9,"FLOOR":3.9,"CEILING":19.6,"ADP_RD":10},{"Player":"Tucker Kraft","Team":"GB","POS":"TE","FPTS":175.3,"VORP":11.9,"FLOOR":3.8,"CEILING":19.1,"ADP_RD":7},{"Player":"George Kittle","Team":"SF","POS":"TE","FPTS":171.0,"VORP":7.6,"FLOOR":4.7,"CEILING":16.8,"ADP_RD":8},{"Player":"Jake Ferguson","Team":"DAL","POS":"TE","FPTS":167.6,"VORP":4.2,"FLOOR":2.5,"CEILING":19.1,"ADP_RD":10},{"Player":"Isaiah Likely","Team":"NYG","POS":"TE","FPTS":165.3,"VORP":1.9,"FLOOR":3.8,"CEILING":23.0,"ADP_RD":9},{"Player":"Mark Andrews","Team":"BAL","POS":"TE","FPTS":163.4,"VORP":0.0,"FLOOR":2.2,"CEILING":20.0,"ADP_RD":10},{"Player":"Dalton Kincaid","Team":"BUF","POS":"TE","FPTS":159.7,"VORP":-3.7,"FLOOR":3.2,"CEILING":15.7,"ADP_RD":10},{"Player":"Juwan Johnson","Team":"NO","POS":"TE","FPTS":154.1,"VORP":-9.3,"FLOOR":4.2,"CEILING":14.0,"ADP_RD":12},{"Player":"Hunter Henry","Team":"NE","POS":"TE","FPTS":153.6,"VORP":-9.8,"FLOOR":2.1,"CEILING":16.4,"ADP_RD":12},{"Player":"Brenton Strange","Team":"JAC","POS":"TE","FPTS":151.4,"VORP":-12.0,"FLOOR":3.4,"CEILING":13.4,"ADP_RD":12},{"Player":"Dalton Schultz","Team":"HOU","POS":"TE","FPTS":148.6,"VORP":-14.8,"FLOOR":3.9,"CEILING":15.5,"ADP_RD":13},{"Player":"T.J. Hockenson","Team":"MIN","POS":"TE","FPTS":140.6,"VORP":-22.8,"FLOOR":2.7,"CEILING":12.5,"ADP_RD":13},{"Player":"Pat Freiermuth","Team":"PIT","POS":"TE","FPTS":133.9,"VORP":-29.5,"FLOOR":2.5,"CEILING":11.8,"ADP_RD":15},{"Player":"Greg Dulcich","Team":"MIA","POS":"TE","FPTS":133.5,"VORP":-29.9,"FLOOR":4.1,"CEILING":12.5,"ADP_RD":14},{"Player":"Kenyon Sadiq","Team":"NYJ","POS":"TE","FPTS":130.1,"VORP":-33.3,"FLOOR":2.0,"CEILING":14.6,"ADP_RD":13},{"Player":"Cade Otton","Team":"TB","POS":"TE","FPTS":129.3,"VORP":-34.1,"FLOOR":2.9,"CEILING":14.7,"ADP_RD":15},{"Player":"AJ Barner","Team":"SEA","POS":"TE","FPTS":124.3,"VORP":-39.1,"FLOOR":1.4,"CEILING":13.4,"ADP_RD":14},{"Player":"Chig Okonkwo","Team":"WAS","POS":"TE","FPTS":124.1,"VORP":-39.3,"FLOOR":1.9,"CEILING":12.8,"ADP_RD":null},{"Player":"Oronde Gadsden II","Team":"LAC","POS":"TE","FPTS":118.8,"VORP":-44.6,"FLOOR":1.6,"CEILING":12.8,"ADP_RD":12},{"Player":"Evan Engram","Team":"DEN","POS":"TE","FPTS":116.7,"VORP":-46.7,"FLOOR":2.4,"CEILING":12.4,"ADP_RD":16},{"Player":"Terrance Ferguson","Team":"LAR","POS":"TE","FPTS":114.8,"VORP":-48.6,"FLOOR":0.0,"CEILING":17.5,"ADP_RD":null},{"Player":"Mike Gesicki","Team":"CIN","POS":"TE","FPTS":113.2,"VORP":-50.2,"FLOOR":2.1,"CEILING":13.6,"ADP_RD":17},{"Player":"Gunnar Helm","Team":"TEN","POS":"TE","FPTS":111.4,"VORP":-52.0,"FLOOR":2.3,"CEILING":12.2,"ADP_RD":15},{"Player":"Mason Taylor","Team":"NYJ","POS":"TE","FPTS":97.7,"VORP":-65.7,"FLOOR":1.2,"CEILING":11.6,"ADP_RD":20},{"Player":"Colby Parkinson","Team":"LAR","POS":"TE","FPTS":91.9,"VORP":-71.5,"FLOOR":0.5,"CEILING":10.5,"ADP_RD":17},{"Player":"David Njoku","Team":"LAC","POS":"TE","FPTS":90.5,"VORP":-72.9,"FLOOR":1.6,"CEILING":9.3,"ADP_RD":16},{"Player":"Michael Mayer","Team":"LV","POS":"TE","FPTS":90.1,"VORP":-73.3,"FLOOR":0.4,"CEILING":13.4,"ADP_RD":null},{"Player":"Dawson Knox","Team":"BUF","POS":"TE","FPTS":79.0,"VORP":-84.4,"FLOOR":1.6,"CEILING":9.9,"ADP_RD":21},{"Player":"Theo Johnson","Team":"NYG","POS":"TE","FPTS":76.2,"VORP":-87.2,"FLOOR":0.9,"CEILING":8.0,"ADP_RD":20},{"Player":"Darnell Washington","Team":"PIT","POS":"TE","FPTS":73.9,"VORP":-89.5,"FLOOR":1.7,"CEILING":7.1,"ADP_RD":null},{"Player":"Tyler Higbee","Team":"LAR","POS":"TE","FPTS":71.2,"VORP":-92.2,"FLOOR":0.0,"CEILING":8.6,"ADP_RD":25},{"Player":"Ja'Tavion Sanders","Team":"CAR","POS":"TE","FPTS":68.1,"VORP":-95.3,"FLOOR":0.1,"CEILING":7.9,"ADP_RD":21},{"Player":"Cole Kmet","Team":"CHI","POS":"TE","FPTS":66.3,"VORP":-97.1,"FLOOR":1.1,"CEILING":6.9,"ADP_RD":22},{"Player":"Noah Fant","Team":"NO","POS":"TE","FPTS":66.1,"VORP":-97.3,"FLOOR":0.2,"CEILING":8.3,"ADP_RD":null},{"Player":"Tommy Tremble","Team":"CAR","POS":"TE","FPTS":63.6,"VORP":-99.8,"FLOOR":0.9,"CEILING":9.5,"ADP_RD":null},{"Player":"Will Kacmarek","Team":"MIA","POS":"TE","FPTS":61.9,"VORP":-101.5,"FLOOR":1.0,"CEILING":7.0,"ADP_RD":null},{"Player":"Erick All Jr.","Team":"CIN","POS":"TE","FPTS":59.1,"VORP":-104.3,"FLOOR":0.9,"CEILING":6.6,"ADP_RD":null},{"Player":"Austin Hooper","Team":"ATL","POS":"TE","FPTS":55.7,"VORP":-107.7,"FLOOR":1.1,"CEILING":6.2,"ADP_RD":null},{"Player":"Charlie Kolar","Team":"LAC","POS":"TE","FPTS":55.4,"VORP":-108.0,"FLOOR":0.0,"CEILING":8.5,"ADP_RD":null},{"Player":"Eli Stowers","Team":"PHI","POS":"TE","FPTS":53.9,"VORP":-109.5,"FLOOR":0.8,"CEILING":6.1,"ADP_RD":17},{"Player":"Josh Oliver","Team":"MIN","POS":"TE","FPTS":52.1,"VORP":-111.3,"FLOOR":0.5,"CEILING":7.5,"ADP_RD":null},{"Player":"Daniel Bellinger","Team":"TEN","POS":"TE","FPTS":51.9,"VORP":-111.5,"FLOOR":0.0,"CEILING":7.5,"ADP_RD":null},{"Player":"Brock Wright","Team":"DET","POS":"TE","FPTS":51.2,"VORP":-112.2,"FLOOR":0.0,"CEILING":6.4,"ADP_RD":null},{"Player":"Noah Gray","Team":"KC","POS":"TE","FPTS":50.8,"VORP":-112.6,"FLOOR":0.4,"CEILING":5.7,"ADP_RD":null},{"Player":"Luke Musgrave","Team":"GB","POS":"TE","FPTS":49.9,"VORP":-113.5,"FLOOR":1.1,"CEILING":5.2,"ADP_RD":null},{"Player":"Elijah Arroyo","Team":"SEA","POS":"TE","FPTS":48.2,"VORP":-115.2,"FLOOR":0.0,"CEILING":6.4,"ADP_RD":null},{"Player":"Jake Tonges","Team":"SF","POS":"TE","FPTS":48.0,"VORP":-115.4,"FLOOR":0.5,"CEILING":5.2,"ADP_RD":19},{"Player":"Adam Trautman","Team":"DEN","POS":"TE","FPTS":47.6,"VORP":-115.8,"FLOOR":0.2,"CEILING":5.8,"ADP_RD":null},{"Player":"Eli Raridon","Team":"NE","POS":"TE","FPTS":46.5,"VORP":-116.9,"FLOOR":0.7,"CEILING":5.2,"ADP_RD":null},{"Player":"Elijah Higgins","Team":"ARI","POS":"TE","FPTS":45.5,"VORP":-117.9,"FLOOR":0.0,"CEILING":4.9,"ADP_RD":null},{"Player":"Ben Sims","Team":"MIA","POS":"TE","FPTS":44.9,"VORP":-118.5,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Marlin Klein","Team":"HOU","POS":"TE","FPTS":44.5,"VORP":-118.9,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Davis Allen","Team":"LAR","POS":"TE","FPTS":43.8,"VORP":-119.6,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"John Bates","Team":"WAS","POS":"TE","FPTS":43.2,"VORP":-120.2,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Jeremy Ruckert","Team":"NYJ","POS":"TE","FPTS":41.8,"VORP":-121.6,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Drew Sample","Team":"CIN","POS":"TE","FPTS":38.6,"VORP":-124.8,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Mitchell Evans","Team":"CAR","POS":"TE","FPTS":37.7,"VORP":-125.7,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Nate Boerkircher","Team":"JAC","POS":"TE","FPTS":37.1,"VORP":-126.3,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Connor Heyward","Team":"LV","POS":"TE","FPTS":36.3,"VORP":-127.1,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Cade Stover","Team":"HOU","POS":"TE","FPTS":33.1,"VORP":-130.3,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Nate Adkins","Team":"DEN","POS":"TE","FPTS":31.8,"VORP":-131.6,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Ben Sinnott","Team":"WAS","POS":"TE","FPTS":31.6,"VORP":-131.8,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Nick Vannett","Team":"SEA","POS":"TE","FPTS":31.5,"VORP":-131.9,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Jack Endries","Team":"CIN","POS":"TE","FPTS":31.3,"VORP":-132.1,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Luke Schoonmaker","Team":"DAL","POS":"TE","FPTS":31.0,"VORP":-132.4,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Charlie Woerner","Team":"ATL","POS":"TE","FPTS":30.7,"VORP":-132.7,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Jackson Hawes","Team":"BUF","POS":"TE","FPTS":30.6,"VORP":-132.8,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Hayden Rucci","Team":"SF","POS":"TE","FPTS":29.8,"VORP":-133.6,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Will Mallory","Team":"IND","POS":"TE","FPTS":29.6,"VORP":-133.8,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Tanner Hudson","Team":"CIN","POS":"TE","FPTS":29.2,"VORP":-134.2,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Teagan Quitoriano","Team":"ARI","POS":"TE","FPTS":28.9,"VORP":-134.5,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Rivaldo Fairweather","Team":"ARI","POS":"TE","FPTS":28.9,"VORP":-134.5,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Grant Calcaterra","Team":"PHI","POS":"TE","FPTS":28.6,"VORP":-134.8,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Bauer Sharp","Team":"TB","POS":"TE","FPTS":28.3,"VORP":-135.1,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Foster Moreau","Team":"HOU","POS":"TE","FPTS":27.6,"VORP":-135.8,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Tanner Conner","Team":"NYG","POS":"TE","FPTS":27.3,"VORP":-136.1,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Mo Alie-Cox","Team":"IND","POS":"TE","FPTS":27.1,"VORP":-136.3,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Thomas Fidone II","Team":"NYG","POS":"TE","FPTS":26.2,"VORP":-137.2,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Jaheim Bell","Team":"PIT","POS":"TE","FPTS":25.8,"VORP":-137.6,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Jaren Kanak","Team":"TEN","POS":"TE","FPTS":25.6,"VORP":-137.8,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Zack Kuntz","Team":"DAL","POS":"TE","FPTS":25.1,"VORP":-138.3,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Drake Dabney","Team":"GB","POS":"TE","FPTS":24.4,"VORP":-139.0,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Seydou Traore","Team":"MIA","POS":"TE","FPTS":23.8,"VORP":-139.6,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Josh Whyle","Team":"GB","POS":"TE","FPTS":23.6,"VORP":-139.8,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Durham Smythe","Team":"BAL","POS":"TE","FPTS":23.6,"VORP":-139.8,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Joe Royer","Team":"CLE","POS":"TE","FPTS":20.1,"VORP":-143.3,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Max Klare","Team":"LAR","POS":"TE","FPTS":19.8,"VORP":-143.6,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Justin Joly","Team":"DEN","POS":"TE","FPTS":19.0,"VORP":-144.4,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Oscar Delp","Team":"NO","POS":"TE","FPTS":18.7,"VORP":-144.7,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Brevyn Spann-Ford","Team":"DAL","POS":"TE","FPTS":18.5,"VORP":-144.9,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Payne Durham","Team":"TB","POS":"TE","FPTS":18.0,"VORP":-145.4,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Devin Culp","Team":"TB","POS":"TE","FPTS":17.4,"VORP":-146.0,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Jack Stoll","Team":"CLE","POS":"TE","FPTS":16.8,"VORP":-146.6,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Hunter Long","Team":"JAC","POS":"TE","FPTS":15.5,"VORP":-147.9,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Cole Turner","Team":"MIA","POS":"TE","FPTS":11.9,"VORP":-151.5,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Luke Farrell","Team":"SF","POS":"TE","FPTS":10.0,"VORP":-153.4,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Tanner Koziol","Team":"JAC","POS":"TE","FPTS":9.2,"VORP":-154.2,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"CJ Dippre","Team":"NE","POS":"TE","FPTS":9.2,"VORP":-154.2,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Ko Kieft","Team":"TB","POS":"TE","FPTS":9.1,"VORP":-154.3,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Tyler Conklin","Team":"DET","POS":"TE","FPTS":8.9,"VORP":-154.5,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Drew Ogletree","Team":"IND","POS":"TE","FPTS":8.7,"VORP":-154.7,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Sam Roush","Team":"CHI","POS":"TE","FPTS":8.7,"VORP":-154.7,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Josh Cuevas","Team":"BAL","POS":"TE","FPTS":8.6,"VORP":-154.8,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Eric Saubert","Team":"SEA","POS":"TE","FPTS":8.6,"VORP":-154.8,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Tip Reiman","Team":"ARI","POS":"TE","FPTS":8.4,"VORP":-155.0,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Ian Thomas","Team":"LV","POS":"TE","FPTS":8.2,"VORP":-155.2,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Johnny Mundt","Team":"PHI","POS":"TE","FPTS":8.2,"VORP":-155.2,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Chris Manhertz","Team":"NYG","POS":"TE","FPTS":4.2,"VORP":-159.2,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Quintin Morris","Team":"JAC","POS":"TE","FPTS":0.0,"VORP":-163.4,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Jelani Woods","Team":"NYJ","POS":"TE","FPTS":0.0,"VORP":-163.4,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Lucas Krull","Team":"DEN","POS":"TE","FPTS":0.0,"VORP":-163.4,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Blake Whiteheart","Team":"CLE","POS":"TE","FPTS":0.0,"VORP":-163.4,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Julian Hill","Team":"NE","POS":"TE","FPTS":0.0,"VORP":-163.4,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Puka Nacua","Team":"LAR","POS":"WR","FPTS":339.8,"VORP":142.5,"FLOOR":11.7,"CEILING":30.6,"ADP_RD":1},{"Player":"Ja'Marr Chase","Team":"CIN","POS":"WR","FPTS":336.1,"VORP":138.8,"FLOOR":6.7,"CEILING":33.0,"ADP_RD":1},{"Player":"Jaxon Smith-Njigba","Team":"SEA","POS":"WR","FPTS":324.0,"VORP":126.7,"FLOOR":12.5,"CEILING":26.1,"ADP_RD":1},{"Player":"Amon-Ra St. Brown","Team":"DET","POS":"WR","FPTS":319.6,"VORP":122.3,"FLOOR":7.5,"CEILING":33.2,"ADP_RD":1},{"Player":"Drake London","Team":"ATL","POS":"WR","FPTS":289.1,"VORP":91.8,"FLOOR":5.8,"CEILING":31.5,"ADP_RD":3},{"Player":"Rashee Rice","Team":"KC","POS":"WR","FPTS":273.3,"VORP":76.0,"FLOOR":7.8,"CEILING":22.9,"ADP_RD":4},{"Player":"CeeDee Lamb","Team":"DAL","POS":"WR","FPTS":272.8,"VORP":75.5,"FLOOR":10.3,"CEILING":22.5,"ADP_RD":2},{"Player":"Justin Jefferson","Team":"MIN","POS":"WR","FPTS":269.6,"VORP":72.3,"FLOOR":5.0,"CEILING":25.1,"ADP_RD":2},{"Player":"Chris Olave","Team":"NO","POS":"WR","FPTS":257.8,"VORP":60.5,"FLOOR":8.0,"CEILING":23.9,"ADP_RD":5},{"Player":"A.J. Brown","Team":"NE","POS":"WR","FPTS":257.4,"VORP":60.1,"FLOOR":3.0,"CEILING":27.7,"ADP_RD":3},{"Player":"George Pickens","Team":"DAL","POS":"WR","FPTS":252.1,"VORP":54.8,"FLOOR":5.3,"CEILING":26.3,"ADP_RD":4},{"Player":"Nico Collins","Team":"HOU","POS":"WR","FPTS":248.4,"VORP":51.1,"FLOOR":7.2,"CEILING":22.4,"ADP_RD":4},{"Player":"Zay Flowers","Team":"BAL","POS":"WR","FPTS":244.4,"VORP":47.1,"FLOOR":6.5,"CEILING":24.1,"ADP_RD":5},{"Player":"Garrett Wilson","Team":"NYJ","POS":"WR","FPTS":242.2,"VORP":44.9,"FLOOR":2.6,"CEILING":23.3,"ADP_RD":6},{"Player":"DeVonta Smith","Team":"PHI","POS":"WR","FPTS":236.8,"VORP":39.5,"FLOOR":5.4,"CEILING":23.0,"ADP_RD":5},{"Player":"Malik Nabers","Team":"NYG","POS":"WR","FPTS":233.7,"VORP":36.4,"FLOOR":3.4,"CEILING":28.9,"ADP_RD":5},{"Player":"Emeka Egbuka","Team":"TB","POS":"WR","FPTS":228.4,"VORP":31.1,"FLOOR":4.7,"CEILING":27.5,"ADP_RD":5},{"Player":"Tetairoa McMillan","Team":"CAR","POS":"WR","FPTS":227.9,"VORP":30.6,"FLOOR":6.0,"CEILING":19.7,"ADP_RD":6},{"Player":"Davante Adams","Team":"LAR","POS":"WR","FPTS":222.0,"VORP":24.7,"FLOOR":6.0,"CEILING":19.0,"ADP_RD":7},{"Player":"Tee Higgins","Team":"CIN","POS":"WR","FPTS":221.5,"VORP":24.2,"FLOOR":5.8,"CEILING":23.1,"ADP_RD":6},{"Player":"Jameson Williams","Team":"DET","POS":"WR","FPTS":217.3,"VORP":20.0,"FLOOR":1.2,"CEILING":24.6,"ADP_RD":8},{"Player":"Ladd McConkey","Team":"LAC","POS":"WR","FPTS":212.5,"VORP":15.2,"FLOOR":3.4,"CEILING":22.9,"ADP_RD":6},{"Player":"Terry McLaurin","Team":"WAS","POS":"WR","FPTS":211.5,"VORP":14.2,"FLOOR":7.5,"CEILING":18.1,"ADP_RD":7},{"Player":"Rome Odunze","Team":"CHI","POS":"WR","FPTS":209.9,"VORP":12.6,"FLOOR":3.1,"CEILING":20.7,"ADP_RD":8},{"Player":"Jaylen Waddle","Team":"DEN","POS":"WR","FPTS":209.7,"VORP":12.4,"FLOOR":3.6,"CEILING":20.5,"ADP_RD":6},{"Player":"Luther Burden III","Team":"CHI","POS":"WR","FPTS":208.1,"VORP":10.8,"FLOOR":1.6,"CEILING":25.3,"ADP_RD":7},{"Player":"DJ Moore","Team":"BUF","POS":"WR","FPTS":208.0,"VORP":10.7,"FLOOR":1.5,"CEILING":27.7,"ADP_RD":8},{"Player":"Alec Pierce","Team":"IND","POS":"WR","FPTS":207.4,"VORP":10.1,"FLOOR":3.0,"CEILING":22.1,"ADP_RD":10},{"Player":"Courtland Sutton","Team":"DEN","POS":"WR","FPTS":204.4,"VORP":7.1,"FLOOR":2.1,"CEILING":20.4,"ADP_RD":11},{"Player":"Mike Evans","Team":"SF","POS":"WR","FPTS":203.9,"VORP":6.6,"FLOOR":4.3,"CEILING":17.7,"ADP_RD":8},{"Player":"Marvin Harrison Jr.","Team":"ARI","POS":"WR","FPTS":197.3,"VORP":0.0,"FLOOR":2.9,"CEILING":20.2,"ADP_RD":9},{"Player":"DK Metcalf","Team":"PIT","POS":"WR","FPTS":194.8,"VORP":-2.5,"FLOOR":5.8,"CEILING":19.2,"ADP_RD":10},{"Player":"Christian Watson","Team":"GB","POS":"WR","FPTS":190.8,"VORP":-6.5,"FLOOR":4.8,"CEILING":19.1,"ADP_RD":8},{"Player":"Michael Pittman Jr.","Team":"PIT","POS":"WR","FPTS":190.0,"VORP":-7.3,"FLOOR":3.2,"CEILING":19.4,"ADP_RD":11},{"Player":"Wan'Dale Robinson","Team":"TEN","POS":"WR","FPTS":188.8,"VORP":-8.5,"FLOOR":3.9,"CEILING":20.6,"ADP_RD":11},{"Player":"Jakobi Meyers","Team":"JAC","POS":"WR","FPTS":183.7,"VORP":-13.6,"FLOOR":6.9,"CEILING":16.1,"ADP_RD":12},{"Player":"Carnell Tate","Team":"TEN","POS":"WR","FPTS":181.4,"VORP":-15.9,"FLOOR":3.2,"CEILING":19.3,"ADP_RD":8},{"Player":"Brian Thomas Jr.","Team":"JAC","POS":"WR","FPTS":180.8,"VORP":-16.5,"FLOOR":5.6,"CEILING":16.7,"ADP_RD":9},{"Player":"Parker Washington","Team":"JAC","POS":"WR","FPTS":179.1,"VORP":-18.2,"FLOOR":3.5,"CEILING":17.7,"ADP_RD":9},{"Player":"Michael Wilson","Team":"ARI","POS":"WR","FPTS":176.7,"VORP":-20.6,"FLOOR":2.2,"CEILING":21.2,"ADP_RD":11},{"Player":"Jayden Reed","Team":"GB","POS":"WR","FPTS":176.4,"VORP":-20.9,"FLOOR":8.0,"CEILING":13.2,"ADP_RD":11},{"Player":"Chris Godwin Jr.","Team":"TB","POS":"WR","FPTS":175.8,"VORP":-21.5,"FLOOR":3.0,"CEILING":17.9,"ADP_RD":11},{"Player":"Josh Downs","Team":"IND","POS":"WR","FPTS":174.3,"VORP":-23.0,"FLOOR":3.7,"CEILING":17.2,"ADP_RD":11},{"Player":"Deebo Samuel Sr.","Team":"SF","POS":"WR","FPTS":174.0,"VORP":-23.3,"FLOOR":4.0,"CEILING":18.8,"ADP_RD":14},{"Player":"Stefon Diggs","Team":"WAS","POS":"WR","FPTS":174.0,"VORP":-23.3,"FLOOR":4.5,"CEILING":18.5,"ADP_RD":null},{"Player":"Jordyn Tyson","Team":"NO","POS":"WR","FPTS":172.5,"VORP":-24.8,"FLOOR":3.1,"CEILING":18.4,"ADP_RD":9},{"Player":"Khalil Shakir","Team":"BUF","POS":"WR","FPTS":171.8,"VORP":-25.5,"FLOOR":1.8,"CEILING":17.0,"ADP_RD":13},{"Player":"Quentin Johnston","Team":"LAC","POS":"WR","FPTS":169.8,"VORP":-27.5,"FLOOR":2.7,"CEILING":17.5,"ADP_RD":10},{"Player":"Jordan Addison","Team":"MIN","POS":"WR","FPTS":168.8,"VORP":-28.5,"FLOOR":2.7,"CEILING":15.8,"ADP_RD":12},{"Player":"Xavier Worthy","Team":"KC","POS":"WR","FPTS":167.3,"VORP":-30.0,"FLOOR":2.2,"CEILING":14.2,"ADP_RD":12},{"Player":"John Metchie III","Team":"CAR","POS":"WR","FPTS":162.9,"VORP":-34.4,"FLOOR":1.2,"CEILING":21.3,"ADP_RD":22},{"Player":"Makai Lemon","Team":"PHI","POS":"WR","FPTS":162.4,"VORP":-34.9,"FLOOR":2.9,"CEILING":17.3,"ADP_RD":11},{"Player":"Romeo Doubs","Team":"NE","POS":"WR","FPTS":160.9,"VORP":-36.4,"FLOOR":2.7,"CEILING":16.3,"ADP_RD":14},{"Player":"Matthew Golden","Team":"GB","POS":"WR","FPTS":157.1,"VORP":-40.2,"FLOOR":1.3,"CEILING":20.2,"ADP_RD":12},{"Player":"Rashid Shaheed","Team":"SEA","POS":"WR","FPTS":156.7,"VORP":-40.6,"FLOOR":1.7,"CEILING":16.6,"ADP_RD":14},{"Player":"Jalen Coker","Team":"CAR","POS":"WR","FPTS":153.4,"VORP":-43.9,"FLOOR":2.1,"CEILING":18.3,"ADP_RD":13},{"Player":"Calvin Ridley","Team":"TEN","POS":"WR","FPTS":152.4,"VORP":-44.9,"FLOOR":3.4,"CEILING":16.5,"ADP_RD":17},{"Player":"Theo Wease Jr.","Team":"MIA","POS":"WR","FPTS":145.4,"VORP":-51.9,"FLOOR":5.6,"CEILING":12.0,"ADP_RD":null},{"Player":"KC Concepcion","Team":"CLE","POS":"WR","FPTS":142.7,"VORP":-54.6,"FLOOR":2.5,"CEILING":15.2,"ADP_RD":13},{"Player":"Tre Tucker","Team":"LV","POS":"WR","FPTS":142.0,"VORP":-55.3,"FLOOR":3.8,"CEILING":12.2,"ADP_RD":15},{"Player":"Jerry Jeudy","Team":"CLE","POS":"WR","FPTS":141.7,"VORP":-55.6,"FLOOR":3.3,"CEILING":16.0,"ADP_RD":16},{"Player":"Tank Dell","Team":"HOU","POS":"WR","FPTS":141.3,"VORP":-56.0,"FLOOR":2.5,"CEILING":15.1,"ADP_RD":17},{"Player":"Jayden Higgins","Team":"HOU","POS":"WR","FPTS":137.9,"VORP":-59.4,"FLOOR":1.5,"CEILING":15.3,"ADP_RD":14},{"Player":"Jauan Jennings","Team":"MIN","POS":"WR","FPTS":134.0,"VORP":-63.3,"FLOOR":3.2,"CEILING":12.6,"ADP_RD":16},{"Player":"Jalen McMillan","Team":"TB","POS":"WR","FPTS":133.9,"VORP":-63.4,"FLOOR":2.7,"CEILING":15.4,"ADP_RD":15},{"Player":"Rashod Bateman","Team":"BAL","POS":"WR","FPTS":132.0,"VORP":-65.3,"FLOOR":0.0,"CEILING":16.1,"ADP_RD":18},{"Player":"Jalen Nailor","Team":"LV","POS":"WR","FPTS":130.2,"VORP":-67.1,"FLOOR":0.0,"CEILING":17.2,"ADP_RD":16},{"Player":"De'Zhaun Stribling","Team":"SF","POS":"WR","FPTS":128.9,"VORP":-68.4,"FLOOR":2.3,"CEILING":13.7,"ADP_RD":null},{"Player":"Cooper Kupp","Team":"SEA","POS":"WR","FPTS":125.1,"VORP":-72.2,"FLOOR":2.9,"CEILING":12.1,"ADP_RD":19},{"Player":"Antonio Williams","Team":"WAS","POS":"WR","FPTS":125.0,"VORP":-72.3,"FLOOR":2.2,"CEILING":13.3,"ADP_RD":16},{"Player":"Adonai Mitchell","Team":"NYJ","POS":"WR","FPTS":124.5,"VORP":-72.8,"FLOOR":0.0,"CEILING":18.7,"ADP_RD":16},{"Player":"Denzel Boston","Team":"CLE","POS":"WR","FPTS":123.7,"VORP":-73.6,"FLOOR":2.2,"CEILING":13.2,"ADP_RD":null},{"Player":"Omar Cooper Jr.","Team":"NYJ","POS":"WR","FPTS":120.5,"VORP":-76.8,"FLOOR":2.1,"CEILING":12.8,"ADP_RD":16},{"Player":"Germie Bernard","Team":"PIT","POS":"WR","FPTS":118.1,"VORP":-79.2,"FLOOR":2.1,"CEILING":12.6,"ADP_RD":18},{"Player":"Travis Hunter","Team":"JAC","POS":"WR","FPTS":111.7,"VORP":-85.6,"FLOOR":3.1,"CEILING":11.0,"ADP_RD":15},{"Player":"Xavier Legette","Team":"CAR","POS":"WR","FPTS":111.6,"VORP":-85.7,"FLOOR":1.0,"CEILING":17.0,"ADP_RD":24},{"Player":"Malik Washington","Team":"MIA","POS":"WR","FPTS":107.1,"VORP":-90.2,"FLOOR":2.9,"CEILING":9.9,"ADP_RD":17},{"Player":"Bub Means","Team":"NO","POS":"WR","FPTS":106.4,"VORP":-90.9,"FLOOR":1.9,"CEILING":11.3,"ADP_RD":null},{"Player":"Kayshon Boutte","Team":"NE","POS":"WR","FPTS":105.5,"VORP":-91.8,"FLOOR":1.9,"CEILING":11.5,"ADP_RD":19},{"Player":"Darnell Mooney","Team":"NYG","POS":"WR","FPTS":105.4,"VORP":-91.9,"FLOOR":2.6,"CEILING":10.4,"ADP_RD":19},{"Player":"Darius Slayton","Team":"NYG","POS":"WR","FPTS":100.7,"VORP":-96.6,"FLOOR":1.9,"CEILING":10.4,"ADP_RD":22},{"Player":"Troy Franklin","Team":"DEN","POS":"WR","FPTS":100.1,"VORP":-97.2,"FLOOR":1.7,"CEILING":12.5,"ADP_RD":20},{"Player":"Ja'Kobi Lane","Team":"BAL","POS":"WR","FPTS":99.8,"VORP":-97.5,"FLOOR":1.8,"CEILING":10.6,"ADP_RD":23},{"Player":"Zachariah Branch","Team":"ATL","POS":"WR","FPTS":98.6,"VORP":-98.7,"FLOOR":1.8,"CEILING":10.5,"ADP_RD":18},{"Player":"Christian Kirk","Team":"SF","POS":"WR","FPTS":95.0,"VORP":-102.3,"FLOOR":1.4,"CEILING":11.0,"ADP_RD":null},{"Player":"Devaughn Vele","Team":"NO","POS":"WR","FPTS":94.2,"VORP":-103.1,"FLOOR":1.7,"CEILING":10.7,"ADP_RD":23},{"Player":"Tory Horton","Team":"SEA","POS":"WR","FPTS":93.9,"VORP":-103.4,"FLOOR":0.0,"CEILING":12.9,"ADP_RD":22},{"Player":"Tyquan Thornton","Team":"KC","POS":"WR","FPTS":92.7,"VORP":-104.6,"FLOOR":0.0,"CEILING":11.1,"ADP_RD":20},{"Player":"Hollywood Brown","Team":"PHI","POS":"WR","FPTS":89.6,"VORP":-107.7,"FLOOR":1.6,"CEILING":9.5,"ADP_RD":25},{"Player":"Andrei Iosivas","Team":"CIN","POS":"WR","FPTS":89.6,"VORP":-107.7,"FLOOR":0.5,"CEILING":10.7,"ADP_RD":25},{"Player":"Jalen Tolbert","Team":"MIA","POS":"WR","FPTS":89.5,"VORP":-107.8,"FLOOR":0.0,"CEILING":13.4,"ADP_RD":22},{"Player":"Tre' Harris","Team":"LAC","POS":"WR","FPTS":89.4,"VORP":-107.9,"FLOOR":1.6,"CEILING":9.5,"ADP_RD":17},{"Player":"Ryan Flournoy","Team":"DAL","POS":"WR","FPTS":89.4,"VORP":-107.9,"FLOOR":0.0,"CEILING":10.9,"ADP_RD":17},{"Player":"Chris Bell","Team":"MIA","POS":"WR","FPTS":88.4,"VORP":-108.9,"FLOOR":1.6,"CEILING":9.4,"ADP_RD":21},{"Player":"Caleb Douglas","Team":"MIA","POS":"WR","FPTS":87.8,"VORP":-109.5,"FLOOR":1.6,"CEILING":9.4,"ADP_RD":22},{"Player":"Isaac TeSlaa","Team":"DET","POS":"WR","FPTS":85.1,"VORP":-112.2,"FLOOR":0.0,"CEILING":12.2,"ADP_RD":17},{"Player":"Dyami Brown","Team":"WAS","POS":"WR","FPTS":84.2,"VORP":-113.1,"FLOOR":0.0,"CEILING":9.6,"ADP_RD":null},{"Player":"Ted Hurst III","Team":"TB","POS":"WR","FPTS":82.7,"VORP":-114.6,"FLOOR":1.5,"CEILING":8.8,"ADP_RD":null},{"Player":"Jack Bech","Team":"LV","POS":"WR","FPTS":82.5,"VORP":-114.8,"FLOOR":0.0,"CEILING":9.8,"ADP_RD":null},{"Player":"Treylon Burks","Team":"WAS","POS":"WR","FPTS":80.9,"VORP":-116.4,"FLOOR":0.0,"CEILING":10.4,"ADP_RD":null},{"Player":"Ashton Dulin","Team":"IND","POS":"WR","FPTS":78.5,"VORP":-118.8,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Elic Ayomanor","Team":"TEN","POS":"WR","FPTS":75.5,"VORP":-121.8,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Jahan Dotson","Team":"ATL","POS":"WR","FPTS":75.2,"VORP":-122.1,"FLOOR":null,"CEILING":null,"ADP_RD":24},{"Player":"Chimere Dike","Team":"TEN","POS":"WR","FPTS":74.8,"VORP":-122.5,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Jaylin Noel","Team":"HOU","POS":"WR","FPTS":74.2,"VORP":-123.1,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Pat Bryant","Team":"DEN","POS":"WR","FPTS":72.5,"VORP":-124.8,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Olamide Zaccheaus","Team":"ATL","POS":"WR","FPTS":69.5,"VORP":-127.8,"FLOOR":null,"CEILING":null,"ADP_RD":26},{"Player":"Joshua Palmer","Team":"BUF","POS":"WR","FPTS":69.3,"VORP":-128.0,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Savion Williams","Team":"GB","POS":"WR","FPTS":69.0,"VORP":-128.3,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Marvin Mims Jr.","Team":"DEN","POS":"WR","FPTS":66.7,"VORP":-130.6,"FLOOR":null,"CEILING":null,"ADP_RD":26},{"Player":"Dontayvion Wicks","Team":"PHI","POS":"WR","FPTS":65.5,"VORP":-131.8,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Luke McCaffrey","Team":"WAS","POS":"WR","FPTS":64.5,"VORP":-132.8,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Xavier Hutchinson","Team":"HOU","POS":"WR","FPTS":64.0,"VORP":-133.3,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"KaVontae Turpin","Team":"DAL","POS":"WR","FPTS":63.6,"VORP":-133.7,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"DeMario Douglas","Team":"NE","POS":"WR","FPTS":61.3,"VORP":-136.0,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Jaylin Lane","Team":"WAS","POS":"WR","FPTS":60.7,"VORP":-136.6,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Calvin Austin III","Team":"NYG","POS":"WR","FPTS":60.1,"VORP":-137.2,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Nick Westbrook-Ikhine","Team":"IND","POS":"WR","FPTS":60.1,"VORP":-137.2,"FLOOR":null,"CEILING":null,"ADP_RD":30},{"Player":"Elijah Sarratt","Team":"BAL","POS":"WR","FPTS":59.2,"VORP":-138.1,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Keon Coleman","Team":"BUF","POS":"WR","FPTS":59.1,"VORP":-138.2,"FLOOR":null,"CEILING":null,"ADP_RD":20},{"Player":"Jahdae Walker","Team":"CHI","POS":"WR","FPTS":56.0,"VORP":-141.3,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Tutu Atwell","Team":"MIA","POS":"WR","FPTS":53.4,"VORP":-143.9,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Cedric Tillman","Team":"CLE","POS":"WR","FPTS":52.9,"VORP":-144.4,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Demarcus Robinson","Team":"SF","POS":"WR","FPTS":52.8,"VORP":-144.5,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Kevin Coleman Jr.","Team":"MIA","POS":"WR","FPTS":51.8,"VORP":-145.5,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Kendrick Bourne","Team":"ARI","POS":"WR","FPTS":50.3,"VORP":-147.0,"FLOOR":null,"CEILING":null,"ADP_RD":24},{"Player":"Kalif Raymond","Team":"CHI","POS":"WR","FPTS":46.5,"VORP":-150.8,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Cyrus Allen","Team":"KC","POS":"WR","FPTS":43.7,"VORP":-153.6,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Skyler Bell","Team":"BUF","POS":"WR","FPTS":42.6,"VORP":-154.7,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Bryce Lance","Team":"NO","POS":"WR","FPTS":42.1,"VORP":-155.2,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Jordan Whittington","Team":"LAR","POS":"WR","FPTS":41.1,"VORP":-156.2,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Odell Beckham Jr.","Team":"NYG","POS":"WR","FPTS":35.1,"VORP":-162.2,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Devontez Walker","Team":"BAL","POS":"WR","FPTS":35.1,"VORP":-162.2,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Zavion Thomas","Team":"CHI","POS":"WR","FPTS":34.9,"VORP":-162.4,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Malachi Fields","Team":"NYG","POS":"WR","FPTS":34.0,"VORP":-163.3,"FLOOR":null,"CEILING":null,"ADP_RD":23},{"Player":"Dont'e Thornton Jr.","Team":"LV","POS":"WR","FPTS":32.2,"VORP":-165.1,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Isaiah Bond","Team":"CLE","POS":"WR","FPTS":30.4,"VORP":-166.9,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Konata Mumpfield","Team":"LAR","POS":"WR","FPTS":29.2,"VORP":-168.1,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Mack Hollins","Team":"NE","POS":"WR","FPTS":28.0,"VORP":-169.3,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Brenen Thompson","Team":"LAC","POS":"WR","FPTS":27.4,"VORP":-169.9,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"KeAndre Lambert-Smith","Team":"LAC","POS":"WR","FPTS":26.6,"VORP":-170.7,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Kyle Williams","Team":"NE","POS":"WR","FPTS":22.1,"VORP":-175.2,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Tez Johnson","Team":"TB","POS":"WR","FPTS":21.5,"VORP":-175.8,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Jimmy Horn Jr.","Team":"CAR","POS":"WR","FPTS":21.4,"VORP":-175.9,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Mitch Tinsley","Team":"CIN","POS":"WR","FPTS":19.5,"VORP":-177.8,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Jalen Royals","Team":"KC","POS":"WR","FPTS":18.3,"VORP":-179.0,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Anthony Gould","Team":"IND","POS":"WR","FPTS":16.2,"VORP":-181.1,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Malik Benson","Team":"LV","POS":"WR","FPTS":15.7,"VORP":-181.6,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Greg Dortch","Team":"DET","POS":"WR","FPTS":14.1,"VORP":-183.2,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Ben Skowronek","Team":"PIT","POS":"WR","FPTS":11.7,"VORP":-185.6,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Bo Melton","Team":"GB","POS":"WR","FPTS":11.5,"VORP":-185.8,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Tyrell Shavers","Team":"BUF","POS":"WR","FPTS":11.0,"VORP":-186.3,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Derius Davis","Team":"LAC","POS":"WR","FPTS":10.2,"VORP":-187.1,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Isaiah Williams","Team":"NYJ","POS":"WR","FPTS":10.0,"VORP":-187.3,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Xavier Smith","Team":"LAR","POS":"WR","FPTS":9.9,"VORP":-187.4,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Colbie Young","Team":"CIN","POS":"WR","FPTS":9.7,"VORP":-187.6,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"CJ Daniels","Team":"LAR","POS":"WR","FPTS":9.6,"VORP":-187.7,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Malachi Corley","Team":"CLE","POS":"WR","FPTS":9.1,"VORP":-188.2,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Tai Felton","Team":"MIN","POS":"WR","FPTS":8.8,"VORP":-188.5,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Justin Watson","Team":"HOU","POS":"WR","FPTS":8.5,"VORP":-188.8,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Darius Cooper","Team":"PHI","POS":"WR","FPTS":8.5,"VORP":-188.8,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Jonathan Mingo","Team":"DAL","POS":"WR","FPTS":8.4,"VORP":-188.9,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Barion Brown","Team":"NO","POS":"WR","FPTS":8.4,"VORP":-188.9,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Laquon Treadwell","Team":"IND","POS":"WR","FPTS":8.3,"VORP":-189.0,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Reggie Virgil","Team":"ARI","POS":"WR","FPTS":8.1,"VORP":-189.2,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Brycen Tremayne","Team":"CAR","POS":"WR","FPTS":7.9,"VORP":-189.4,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Kaden Wetjen","Team":"PIT","POS":"WR","FPTS":5.6,"VORP":-191.7,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Arian Smith","Team":"NYJ","POS":"WR","FPTS":3.4,"VORP":-193.9,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Kameron Johnson","Team":"TB","POS":"WR","FPTS":1.8,"VORP":-195.5,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"JuJu Smith-Schuster","Team":"NYG","POS":"WR","FPTS":1.6,"VORP":-195.7,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"David Moore","Team":"CAR","POS":"WR","FPTS":0.0,"VORP":-197.3,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Braxton Berrios","Team":"NYG","POS":"WR","FPTS":0.0,"VORP":-197.3,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Devin Duvernay","Team":"ARI","POS":"WR","FPTS":0.0,"VORP":-197.3,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Mason Kinsey","Team":"TEN","POS":"WR","FPTS":0.0,"VORP":-197.3,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Michael Bandy","Team":"DEN","POS":"WR","FPTS":0.0,"VORP":-197.3,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Skyy Moore","Team":"GB","POS":"WR","FPTS":0.0,"VORP":-197.3,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Britain Covey","Team":"PHI","POS":"WR","FPTS":0.0,"VORP":-197.3,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Dareke Young","Team":"LV","POS":"WR","FPTS":0.0,"VORP":-197.3,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Jacob Cowing","Team":"SF","POS":"WR","FPTS":0.0,"VORP":-197.3,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Charlie Jones","Team":"CIN","POS":"WR","FPTS":0.0,"VORP":-197.3,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Jalen Brooks","Team":"ARI","POS":"WR","FPTS":0.0,"VORP":-197.3,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Nikko Remigio","Team":"KC","POS":"WR","FPTS":0.0,"VORP":-197.3,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Jeshaun Jones","Team":"MIN","POS":"WR","FPTS":0.0,"VORP":-197.3,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Mason Tipton","Team":"NO","POS":"WR","FPTS":0.0,"VORP":-197.3,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Efton Chism III","Team":"NE","POS":"WR","FPTS":0.0,"VORP":-197.3,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"LaJohntay Wester","Team":"BAL","POS":"WR","FPTS":0.0,"VORP":-197.3,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Ke'Shawn Williams","Team":"CIN","POS":"WR","FPTS":0.0,"VORP":-197.3,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Myles Price","Team":"MIN","POS":"WR","FPTS":0.0,"VORP":-197.3,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Gage Larvadain","Team":"CLE","POS":"WR","FPTS":0.0,"VORP":-197.3,"FLOOR":null,"CEILING":null,"ADP_RD":null},{"Player":"Josh Cameron","Team":"JAC","POS":"WR","FPTS":0.0,"VORP":-197.3,"FLOOR":null,"CEILING":null,"ADP_RD":null}];
+
+  const root = document.currentScript.closest('.db-root') || document.querySelector('.db-root');
+  const tabsEl = document.getElementById('db-tabs');
+  const tableEl = document.getElementById('db-table');
+  const searchEl = document.getElementById('db-search');
+  const sortBtn = document.getElementById('db-sort-btn');
+  const emptyEl = document.getElementById('db-empty');
+
+  const POSITIONS = ['ALL', 'QB', 'RB', 'WR', 'RB/WR', 'TE'];
+
+  function getTabBase(tab) {
+    if (tab === 'ALL') return PLAYERS.slice();
+    if (tab === 'RB/WR') return PLAYERS.filter(p => p.POS === 'RB' || p.POS === 'WR');
+    return PLAYERS.filter(p => p.POS === tab);
+  }
+  let activeTab = 'ALL';
+  let sortKey = 'VORP';
+  let searchTerm = '';
+  let notes = {};
+  let drafted = {};
+  let targets = {};
+  let avoided = {};
+  let expanded = null;
+  let hideDrafted = false;
+  let teamFilter = 'ALL';
+
+  function posColor(pos) {
+    return { QB: '#D8AC4F', RB: '#7FBE95', WR: '#8FB6D9', TE: '#C79FD1' }[pos] || '#9DB4A0';
+  }
+
+  function loadNotes() {
+    try {
+      const raw = localStorage.getItem('player-notes-2026');
+      notes = raw ? JSON.parse(raw) : {};
+    } catch (e) {
+      notes = {};
+    }
+  }
+
+  function loadDrafted() {
+    try {
+      const raw = localStorage.getItem('drafted-players-2026');
+      drafted = raw ? JSON.parse(raw) : {};
+    } catch (e) {
+      drafted = {};
+    }
+  }
+
+  function loadTargets() {
+    try {
+      const raw = localStorage.getItem('player-targets-2026');
+      targets = raw ? JSON.parse(raw) : {};
+    } catch (e) {
+      targets = {};
+    }
+  }
+
+  function saveTargets() {
+    try {
+      localStorage.setItem('player-targets-2026', JSON.stringify(targets));
+    } catch (e) {}
+  }
+
+  function toggleTarget(key) {
+    if (targets[key]) {
+      delete targets[key];
+    } else {
+      targets[key] = true;
+      delete avoided[key];
+      saveAvoided();
+    }
+    saveTargets();
+    render();
+  }
+
+  function loadAvoided() {
+    try {
+      const raw = localStorage.getItem('player-avoid-2026');
+      avoided = raw ? JSON.parse(raw) : {};
+    } catch (e) {
+      avoided = {};
+    }
+  }
+
+  function saveAvoided() {
+    try {
+      localStorage.setItem('player-avoid-2026', JSON.stringify(avoided));
+    } catch (e) {}
+  }
+
+  function toggleAvoid(key) {
+    if (avoided[key]) {
+      delete avoided[key];
+    } else {
+      avoided[key] = true;
+      delete targets[key];
+      saveTargets();
+    }
+    saveAvoided();
+    render();
+  }
+
+  function persistNotes() {
+    try {
+      localStorage.setItem('player-notes-2026', JSON.stringify(notes));
+    } catch (e) {}
+  }
+
+  let saveTimer = null;
+  function saveNotes() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(persistNotes, 400);
+  }
+
+  function saveDrafted() {
+    try {
+      localStorage.setItem('drafted-players-2026', JSON.stringify(drafted));
+    } catch (e) {}
+  }
+
+  function toggleDrafted(key) {
+    if (drafted[key]) delete drafted[key];
+    else drafted[key] = true;
+    saveDrafted();
+    render();
+  }
+
+  function renderTabs() {
+    tabsEl.innerHTML = '';
+    POSITIONS.forEach(pos => {
+      const count = getTabBase(pos).length;
+      const btn = document.createElement('button');
+      btn.className = 'db-mono';
+      const isActive = pos === activeTab;
+      btn.style.cssText = 'padding:8px 16px; border-radius:8px; cursor:pointer; font-size:12px; border:0.5px solid ' +
+        (isActive ? 'var(--db-gold)' : 'var(--db-line)') + '; background:' +
+        (isActive ? 'var(--db-gold)' : 'var(--db-panel)') + '; color:' +
+        (isActive ? '#1C3126' : 'var(--db-chalk)') + '; font-weight:' + (isActive ? '600' : '400') + ';';
+      btn.textContent = pos + ' (' + count + ')';
+      btn.onclick = () => { activeTab = pos; expanded = null; render(); };
+      tabsEl.appendChild(btn);
+    });
+  }
+
+  function getFiltered() {
+    let list = getTabBase(activeTab);
+    if (teamFilter !== 'ALL') {
+      list = list.filter(p => p.Team === teamFilter);
+    }
+    if (searchTerm.trim()) {
+      const t = searchTerm.trim().toLowerCase();
+      list = list.filter(p => p.Player.toLowerCase().includes(t));
+    }
+    if (hideDrafted) {
+      list = list.filter(p => !drafted[p.Player]);
+    }
+    list.sort((a, b) => (b[sortKey] ?? -Infinity) - (a[sortKey] ?? -Infinity));
+    return list;
+  }
+
+  function getTrueRankMap() {
+    const base = getTabBase(activeTab);
+    base.sort((a, b) => (b[sortKey] ?? -Infinity) - (a[sortKey] ?? -Infinity));
+    const map = {};
+    base.forEach((p, i) => { map[p.Player] = i + 1; });
+    return map;
+  }
+
+  function renderTable() {
+    const list = getFiltered();
+    const trueRank = getTrueRankMap();
+    emptyEl.style.display = list.length === 0 ? 'block' : 'none';
+    tableEl.innerHTML = '';
+    if (list.length === 0) return;
+
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'border:0.5px solid var(--db-line); border-radius:10px; overflow:hidden;';
+
+    const cols = '30px 30px 14px 1fr 46px 66px 66px 55px 90px 28px';
+
+    const header = document.createElement('div');
+    header.className = 'db-mono';
+    header.style.cssText = 'display:grid; grid-template-columns:' + cols + '; gap:8px; padding:8px 12px; background:var(--db-panel-2); font-size:11px; color:var(--db-muted); text-transform:uppercase;';
+    header.innerHTML = '<div></div><div>#</div><div></div><div>Player</div><div>Pos</div><div style="text-align:right;">FPTS</div><div style="text-align:right;">VORP</div><div style="text-align:right;">PPG</div><div style="text-align:right;">Floor&ndash;Ceil</div><div></div>';
+    wrap.appendChild(header);
+
+    const displayList = list;
+
+    displayList.forEach((p, idx) => {      const key = p.Player;
+      const isOpen = expanded === key;
+      const hasNote = notes[key] && notes[key].trim().length > 0;
+      const isDrafted = !!drafted[key];
+      const isAvoided = !!avoided[key];
+
+      const row = document.createElement('div');
+      row.style.cssText = 'border-top:0.5px solid var(--db-line-soft);' + (isDrafted ? ' opacity:0.45;' : (isAvoided ? ' opacity:0.4;' : ''));
+
+      const rowMain = document.createElement('div');
+      rowMain.style.cssText = 'display:grid; grid-template-columns:' + cols + '; gap:8px; padding:9px 12px; align-items:center; cursor:pointer;';
+      rowMain.onmouseenter = () => rowMain.style.background = 'var(--db-panel)';
+      rowMain.onmouseleave = () => rowMain.style.background = 'transparent';
+
+      const draftBtn = document.createElement('button');
+      draftBtn.setAttribute('aria-label', isDrafted ? 'Mark ' + p.Player + ' as available' : 'Mark ' + p.Player + ' as drafted');
+      draftBtn.style.cssText = 'width:20px; height:20px; border-radius:50%; border:1.5px solid ' + (isDrafted ? 'var(--db-drafted)' : 'var(--db-muted)') + '; background:' + (isDrafted ? 'var(--db-drafted)' : 'transparent') + '; cursor:pointer; display:flex; align-items:center; justify-content:center; color:var(--db-bg); font-size:12px; padding:0; flex-shrink:0;';
+      draftBtn.innerHTML = isDrafted ? '<i class="ti ti-check" aria-hidden="true" style="font-size:13px;"></i>' : '';
+      draftBtn.onclick = (e) => { e.stopPropagation(); toggleDrafted(key); };
+
+      const rankEl = document.createElement('div');
+      rankEl.className = 'db-mono';
+      rankEl.style.cssText = 'font-size:12px; color:var(--db-muted);';
+      rankEl.textContent = trueRank[p.Player];
+
+      const targetDotEl = document.createElement('div');
+      targetDotEl.style.cssText = 'display:flex; align-items:center; justify-content:center;';
+      if (targets[key]) {
+        targetDotEl.innerHTML = '<span style="width:7px; height:7px; border-radius:50%; background:#D9534F; display:inline-block;" title="Target"></span>';
+      } else if (isAvoided) {
+        targetDotEl.innerHTML = '<span style="width:7px; height:7px; border-radius:50%; background:var(--db-muted); display:inline-block;" title="Avoid"></span>';
+      }
+
+      const nameEl = document.createElement('div');
+      nameEl.style.cssText = 'font-size:13px; display:flex; align-items:center; gap:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;' + (isDrafted ? ' text-decoration:line-through;' : '');
+      nameEl.innerHTML = p.Player + ' <span class="db-mono" style="color:var(--db-muted); font-size:11px;">' + p.Team + '</span>' + (hasNote ? ' <span style="width:5px;height:5px;border-radius:50%;background:var(--db-gold);display:inline-block;flex-shrink:0;"></span>' : '');
+
+      const posTeamEl = document.createElement('div');
+      posTeamEl.className = 'db-mono';
+      posTeamEl.style.cssText = 'font-size:11px; color:' + posColor(p.POS) + ';';
+      posTeamEl.textContent = p.POS;
+
+      const fptsEl = document.createElement('div');
+      fptsEl.className = 'db-mono';
+      fptsEl.style.cssText = 'font-size:12px; text-align:right; color:var(--db-chalk);';
+      fptsEl.textContent = p.FPTS.toFixed(1);
+
+      const vorpEl = document.createElement('div');
+      vorpEl.className = 'db-mono';
+      vorpEl.style.cssText = 'font-size:12px; text-align:right; font-weight:500; color:' + (p.VORP >= 0 ? 'var(--db-pos)' : 'var(--db-neg)') + ';';
+      vorpEl.textContent = (p.VORP >= 0 ? '+' : '') + p.VORP.toFixed(1);
+
+      const ppgEl = document.createElement('div');
+      ppgEl.className = 'db-mono';
+      ppgEl.style.cssText = 'font-size:11px; text-align:right; color:var(--db-muted);';
+      ppgEl.textContent = (p.FLOOR != null) ? (p.FPTS / 17).toFixed(1) : '\u2014';
+
+      const rangeEl = document.createElement('div');
+      rangeEl.className = 'db-mono';
+      rangeEl.style.cssText = 'font-size:11px; text-align:right; color:var(--db-muted);';
+      rangeEl.textContent = (p.FLOOR != null && p.CEILING != null) ? (p.FLOOR.toFixed(1) + '\u2013' + p.CEILING.toFixed(1)) : '\u2014';
+
+      const chevEl = document.createElement('div');
+      chevEl.style.cssText = 'font-size:14px; color:var(--db-muted); text-align:center; transition:transform 0.15s;';
+      chevEl.innerHTML = '<i class="ti ti-chevron-down" aria-hidden="true" style="font-size:14px;"></i>';
+      if (isOpen) chevEl.style.transform = 'rotate(180deg)';
+
+      rowMain.appendChild(draftBtn);
+      rowMain.appendChild(rankEl);
+      rowMain.appendChild(targetDotEl);
+      rowMain.appendChild(nameEl);
+      rowMain.appendChild(posTeamEl);
+      rowMain.appendChild(fptsEl);
+      rowMain.appendChild(vorpEl);
+      rowMain.appendChild(ppgEl);
+      rowMain.appendChild(rangeEl);
+      rowMain.appendChild(chevEl);
+      rowMain.onclick = () => { expanded = isOpen ? null : key; render(); };
+
+      row.appendChild(rowMain);
+
+      if (isOpen) {
+        const noteWrap = document.createElement('div');
+        noteWrap.style.cssText = 'padding:0 12px 12px 46px; background:var(--db-panel);';
+
+        const btnRow = document.createElement('div');
+        btnRow.style.cssText = 'display:flex; gap:8px; margin-bottom:8px;';
+
+        const isTargeted = !!targets[key];
+        const targetBtn = document.createElement('button');
+        targetBtn.className = 'db-mono';
+        targetBtn.style.cssText = 'display:flex; align-items:center; gap:6px; background:' + (isTargeted ? '#D9534F' : 'transparent') + '; border:1px solid #D9534F; color:' + (isTargeted ? '#fff' : '#D9534F') + '; padding:6px 12px; border-radius:8px; font-size:11px; cursor:pointer;';
+        targetBtn.innerHTML = '<span style="width:7px;height:7px;border-radius:50%;background:' + (isTargeted ? '#fff' : '#D9534F') + ';display:inline-block;"></span>' + (isTargeted ? 'Targeted' : 'Target');
+        targetBtn.onclick = (e) => { e.stopPropagation(); toggleTarget(key); };
+        btnRow.appendChild(targetBtn);
+
+        const avoidBtn = document.createElement('button');
+        avoidBtn.className = 'db-mono';
+        avoidBtn.style.cssText = 'display:flex; align-items:center; gap:6px; background:' + (isAvoided ? 'var(--db-muted)' : 'transparent') + '; border:1px solid var(--db-muted); color:' + (isAvoided ? 'var(--db-bg)' : 'var(--db-muted)') + '; padding:6px 12px; border-radius:8px; font-size:11px; cursor:pointer;';
+        avoidBtn.innerHTML = '<span style="width:7px;height:7px;border-radius:50%;background:' + (isAvoided ? 'var(--db-bg)' : 'var(--db-muted)') + ';display:inline-block;"></span>' + (isAvoided ? 'Avoided' : 'Avoid');
+        avoidBtn.onclick = (e) => { e.stopPropagation(); toggleAvoid(key); };
+        btnRow.appendChild(avoidBtn);
+
+        noteWrap.appendChild(btnRow);
+
+        const ta = document.createElement('textarea');
+        ta.placeholder = 'Add a note on ' + p.Player + '...';
+        ta.value = notes[key] || '';
+        ta.style.cssText = 'width:100%; min-height:60px; background:var(--db-bg); border:0.5px solid var(--db-line); color:var(--db-chalk); border-radius:8px; padding:8px 10px; font-family:Inter,sans-serif; font-size:12px; resize:vertical; outline:none;';
+        ta.oninput = () => { notes[key] = ta.value; saveNotes(); };
+        ta.onblur = () => {
+          clearTimeout(saveTimer);
+          persistNotes();
+        };
+        noteWrap.appendChild(ta);
+        row.appendChild(noteWrap);
+      }
+
+      wrap.appendChild(row);
+    });
+
+    tableEl.appendChild(wrap);
+  }
+
+  function render() {
+    renderTabs();
+    renderTable();
+  }
+
+  searchEl.addEventListener('input', (e) => { searchTerm = e.target.value; render(); });
+  sortBtn.addEventListener('click', () => {
+    const sortOrder = ['VORP', 'FPTS'];
+    sortKey = sortOrder[(sortOrder.indexOf(sortKey) + 1) % sortOrder.length];
+    sortBtn.textContent = 'Sort: ' + sortKey;
+    render();
+  });
+
+  document.getElementById('db-hide-drafted').addEventListener('change', (e) => {
+    hideDrafted = e.target.checked;
+    render();
+  });
+
+  const teamFilterEl = document.getElementById('db-team-filter');
+  const teams = Array.from(new Set(PLAYERS.map(p => p.Team))).sort();
+  teamFilterEl.innerHTML = '<option value="ALL">All Teams</option>' +
+    teams.map(t => '<option value="' + t + '">' + t + '</option>').join('');
+  teamFilterEl.addEventListener('change', (e) => {
+    teamFilter = e.target.value;
+    render();
+  });
+
+  // --- Sleeper live draft sync ---
+  function cleanNameJS(name) {
+    return (name || '').replace(/\s+(Jr\.?|Sr\.?|II|III|IV)$/i, '').trim().toLowerCase();
+  }
+
+  const cleanedNameMap = {};
+  PLAYERS.forEach(p => { cleanedNameMap[cleanNameJS(p.Player)] = p.Player; });
+
+  let sleeperDraftId = null;
+  let sleeperInterval = null;
+  const sleeperStatusEl = document.getElementById('db-sleeper-status');
+  const sleeperInputEl = document.getElementById('db-sleeper-id');
+  const sleeperBtnEl = document.getElementById('db-sleeper-btn');
+
+  function setSleeperStatus(text) {
+    sleeperStatusEl.textContent = text;
+  }
+
+  async function pollSleeperDraft() {
+    try {
+      const res = await fetch('https://api.sleeper.app/v1/draft/' + sleeperDraftId + '/picks');
+      if (!res.ok) throw new Error('bad response');
+      const picks = await res.json();
+      let changed = false;
+      picks.forEach(pick => {
+        const meta = pick.metadata || {};
+        const full = (meta.first_name || '') + ' ' + (meta.last_name || '');
+        const key = cleanedNameMap[cleanNameJS(full)];
+        if (key && !drafted[key]) {
+          drafted[key] = true;
+          changed = true;
+        }
+      });
+      if (changed) { saveDrafted(); render(); }
+      setSleeperStatus('Connected \u2014 ' + picks.length + ' picks synced \u00b7 last checked ' + new Date().toLocaleTimeString());
+    } catch (e) {
+      setSleeperStatus('Could not reach Sleeper \u2014 will retry');
+    }
+  }
+
+  const playerByName = {};
+  PLAYERS.forEach(p => { playerByName[p.Player] = p; });
+
+  const posSorted = {};
+  ['QB', 'RB', 'WR', 'TE'].forEach(pos => {
+    posSorted[pos] = PLAYERS.filter(p => p.POS === pos).sort((a, b) => b.VORP - a.VORP);
+  });
+
+  // Scarcity drop-off: how much VORP you'd lose at this position by waiting
+  // one round-equivalent (12 players, matching our 12-team round chart) longer.
+  function scarcityDropoff(pos, playerName) {
+    const list = posSorted[pos];
+    if (!list) return null;
+    const idx = list.findIndex(p => p.Player === playerName);
+    if (idx === -1) return null;
+    const nextIdx = Math.min(idx + 12, list.length - 1);
+    return list[idx].VORP - list[nextIdx].VORP;
+  }
+
+  function scarcityTag(dropoff) {
+    if (dropoff == null) return { label: '\u2014', color: 'var(--db-muted)' };
+    if (dropoff >= 15) return { label: 'High scarcity \u2014 great timing', color: 'var(--db-pos)' };
+    if (dropoff >= 7) return { label: 'Moderate scarcity', color: 'var(--db-muted)' };
+    return { label: 'Low scarcity \u2014 could\u2019ve waited', color: 'var(--db-neg)' };
+  }
+
+  function gradeTag(delta) {
+    if (delta >= 3) return { label: 'Steal', color: 'var(--db-pos)' };
+    if (delta >= 2) return { label: 'Good Value', color: 'var(--db-pos)' };
+    if (delta >= -1) return { label: 'Fair', color: 'var(--db-muted)' };
+    if (delta >= -3) return { label: 'Slight Reach', color: 'var(--db-neg)' };
+    return { label: 'Reach', color: 'var(--db-neg)' };
+  }
+
+  // Component 3: Team Value — best possible starting lineup (QB,RB,RB,WR,WR,TE,FLEX,SUPERFLEX) by VORP.
+  // Calibrated against the real player pool: replacement baseline = 0, a realistic solid team \u2248 350, elite \u2248 1000+.
+  function bestLineupVorp(roster) {
+    const pool = roster.slice();
+    function takeBest(pos, n) {
+      const cands = pool.filter(p => p.POS === pos).sort((a, b) => b.VORP - a.VORP).slice(0, n);
+      cands.forEach(c => { const i = pool.indexOf(c); if (i > -1) pool.splice(i, 1); });
+      return cands;
+    }
+    const qb = takeBest('QB', 1), rb = takeBest('RB', 2), wr = takeBest('WR', 2), te = takeBest('TE', 1);
+    const flexPool = pool.filter(p => ['RB','WR','TE'].includes(p.POS)).sort((a,b) => b.VORP - a.VORP);
+    const flex = flexPool.slice(0, 1);
+    flex.forEach(f => { const i = pool.indexOf(f); if (i > -1) pool.splice(i, 1); });
+    const superflex = pool.sort((a,b) => b.VORP - a.VORP).slice(0, 1);
+    const starters = qb.concat(rb, wr, te, flex, superflex);
+    return { total: starters.reduce((s, p) => s + p.VORP, 0), starters };
+  }
+
+  function teamValueTier(total) {
+    if (total >= 600) return { label: 'Elite roster value', color: 'var(--db-pos)' };
+    if (total >= 450) return { label: 'Strong roster value', color: 'var(--db-pos)' };
+    if (total >= 250) return { label: 'Solid, average value', color: 'var(--db-muted)' };
+    if (total >= 100) return { label: 'Below-average value', color: 'var(--db-neg)' };
+    return { label: 'Weak roster value', color: 'var(--db-neg)' };
+  }
+
+  // Component 4: Roster Balance — real depth check against superflex-league starting needs.
+  function rosterBalance(roster) {
+    const targets = { QB: 2, RB: 4, WR: 4, TE: 1 };
+    const counts = { QB: 0, RB: 0, WR: 0, TE: 0 };
+    roster.forEach(p => { if (p.VORP > 0 && counts[p.POS] != null) counts[p.POS]++; });
+    const fractions = Object.keys(targets).map(pos => Math.min(counts[pos] / targets[pos], 1));
+    const score = fractions.reduce((a,b) => a+b, 0) / fractions.length;
+    return { score, counts, targets };
+  }
+
+  function balanceTier(score) {
+    if (score >= 0.9) return { label: 'Excellent depth at every position', color: 'var(--db-pos)' };
+    if (score >= 0.7) return { label: 'Good depth, minor gaps', color: 'var(--db-muted)' };
+    if (score >= 0.5) return { label: 'Uneven \u2014 real gaps in your roster', color: 'var(--db-neg)' };
+    return { label: 'Poor balance \u2014 punted a position too hard', color: 'var(--db-neg)' };
+  }
+
+  function letterGrade(avg) {
+    if (avg >= 1.25) return 'A+';
+    if (avg >= 0.75) return 'A';
+    if (avg >= 0.35) return 'B+';
+    if (avg >= 0.1) return 'B';
+    if (avg >= -0.15) return 'B-';
+    if (avg >= -0.5) return 'C';
+    if (avg >= -1) return 'D';
+    return 'F';
+  }
+
+  function gradeContext(rows, avgDelta, grade, teamValueTotal, balance) {
+    const strongVorpReaches = rows.filter(r => r.delta != null && r.delta < -1 && r.vorp != null && r.vorp > 30);
+    const highTiming = rows.filter(r => r.dropoff != null && r.dropoff >= 15);
+    let text = 'This grade blends four things: value vs. the real market (ADP), positional scarcity timing (from the round-decline chart), your best lineup\u2019s total VORP (Team Value), and how well-stocked your roster is at every position (Roster Balance).';
+    if (highTiming.length > 0) {
+      text += ' Your strongest scarcity-timing picks: ' + highTiming.map(r => r.name + ' (' + r.pos + ')').join(', ') + '.';
+    }
+    if (strongVorpReaches.length > 0) {
+      text += ' ' + strongVorpReaches.map(r => r.name).join(', ') + ' show as reaches by pure ADP but carry strong VORP \u2014 often still the right call.';
+    }
+    const gaps = Object.keys(balance.targets).filter(pos => balance.counts[pos] < balance.targets[pos]);
+    if (gaps.length > 0) {
+      text += ' Positions still needing depth: ' + gaps.map(pos => pos + ' (' + balance.counts[pos] + '/' + balance.targets[pos] + ')').join(', ') + '.';
+    }
+    return text;
+  }
+
+  async function gradeMyDraft() {
+    const gradeStatusEl = document.getElementById('db-grade-status');
+    const resultsEl = document.getElementById('db-grade-results');
+    const slotInput = document.getElementById('db-my-slot').value.trim();
+    const draftIdInput = sleeperInputEl.value.trim() || sleeperDraftId;
+
+    if (!draftIdInput) {
+      gradeStatusEl.textContent = 'Enter and connect a Sleeper draft ID first';
+      return;
+    }
+    if (!slotInput) {
+      gradeStatusEl.textContent = 'Enter your draft slot number';
+      return;
+    }
+    const mySlot = parseInt(slotInput, 10);
+    gradeStatusEl.textContent = 'Grading...';
+
+    try {
+      const res = await fetch('https://api.sleeper.app/v1/draft/' + draftIdInput + '/picks');
+      if (!res.ok) throw new Error('bad response');
+      const picks = await res.json();
+      const myPicks = picks.filter(p => Number(p.draft_slot) === mySlot);
+
+      if (myPicks.length === 0) {
+        gradeStatusEl.textContent = 'No picks found for that slot yet';
+        resultsEl.style.display = 'none';
+        return;
+      }
+
+      const rows = myPicks.map(pick => {
+        const meta = pick.metadata || {};
+        const full = (meta.first_name || '') + ' ' + (meta.last_name || '');
+        const key = cleanedNameMap[cleanNameJS(full)];
+        const player = key ? playerByName[key] : null;
+        const actualRound = pick.round;
+        const adpRound = player ? player.ADP_RD : null;
+        const delta = (adpRound != null) ? (actualRound - adpRound) : null;
+        const dropoff = (player && key) ? scarcityDropoff(player.POS, key) : null;
+        return {
+          round: actualRound,
+          name: full.trim() || '(unknown)',
+          pos: player ? player.POS : '-',
+          vorp: player ? player.VORP : null,
+          adpRound, delta, dropoff
+        };
+      }).sort((a, b) => a.round - b.round);
+
+      const knownDeltas = rows.filter(r => r.delta != null).map(r => r.delta);
+      const avgDelta = knownDeltas.length ? knownDeltas.reduce((a, b) => a + b, 0) / knownDeltas.length : 0;
+
+      const knownDropoffs = rows.filter(r => r.dropoff != null).map(r => r.dropoff);
+      const avgDropoff = knownDropoffs.length ? knownDropoffs.reduce((a, b) => a + b, 0) / knownDropoffs.length : 0;
+      const scarcityBonusRounds = avgDropoff / 30; // scale: ~30 VORP pts of avoided drop-off \u2248 1 round of bonus value
+
+      const roster = rows.filter(r => r.vorp != null).map(r => ({ POS: r.pos, VORP: r.vorp }));
+      const lineup = bestLineupVorp(roster);
+      const balance = rosterBalance(roster);
+
+      const draftInProgress = roster.length < 8; // fewer than starting-lineup size \u2014 not enough to fairly judge team shape yet
+      const teamValueBonusRounds = draftInProgress ? 0 : (lineup.total - 350) / 150; // 0 = replacement, ~350 = realistic solid team
+      const balanceBonusRounds = draftInProgress ? 0 : (balance.score - 0.75) * 4;
+
+      const activeComponents = draftInProgress ? 2 : 4;
+      const blendedAvg = (avgDelta + scarcityBonusRounds + teamValueBonusRounds + balanceBonusRounds) / activeComponents;
+      const grade = letterGrade(blendedAvg);
+      const totalVorp = rows.reduce((sum, r) => sum + (r.vorp || 0), 0);
+      const tvTier = draftInProgress ? { label: 'In progress \u2014 needs 8+ picks', color: 'var(--db-muted)' } : teamValueTier(lineup.total);
+      const balTier = draftInProgress ? { label: 'In progress \u2014 needs 8+ picks', color: 'var(--db-muted)' } : balanceTier(balance.score);
+
+      let html = '<div style="border:0.5px solid var(--db-line); border-radius:10px; overflow:hidden;">';
+      html += '<div style="padding:16px; background:var(--db-panel-2);">';
+      html += '<div style="display:flex; align-items:center; gap:20px; flex-wrap:wrap; margin-bottom:10px;">';
+      html += '<div class="db-display" style="font-size:32px; color:var(--db-gold);">' + grade + '</div>';
+      html += '<div class="db-mono" style="font-size:11px; color:var(--db-muted);">' + rows.length + ' picks graded &middot; ' + (draftInProgress ? 'blend of 2 components (Team Value & Balance unlock at 8+ picks)' : 'blend of 4 components below') + '</div>';
+      html += '</div>';
+      html += '<div class="db-mono" style="display:grid; grid-template-columns:1fr 1fr; gap:8px 20px; font-size:11px; color:var(--db-muted); line-height:1.6;">';
+      html += '<div>1. ADP Value: <span style="color:var(--db-chalk);">' + (avgDelta >= 0 ? '+' : '') + avgDelta.toFixed(2) + ' rounds</span></div>';
+      html += '<div>2. Positional Timing: <span style="color:var(--db-chalk);">' + (scarcityBonusRounds >= 0 ? '+' : '') + scarcityBonusRounds.toFixed(2) + ' rounds</span> (avg ' + avgDropoff.toFixed(1) + ' VORP saved/pick)</div>';
+      html += '<div>3. Team Value: <span style="color:' + tvTier.color + ';">' + tvTier.label + '</span>' + (draftInProgress ? '' : ' (' + lineup.total.toFixed(0) + ' starter VORP)') + '</div>';
+      html += '<div>4. Roster Balance: <span style="color:' + balTier.color + ';">' + balTier.label + '</span>' + (draftInProgress ? '' : ' (' + Math.round(balance.score*100) + '%)') + '</div>';
+      html += '</div></div>';
+
+      html += '<div class="db-mono" style="display:grid; grid-template-columns:50px 1fr 40px 60px 60px 140px 150px; gap:8px; padding:8px 12px; background:var(--db-panel); font-size:10px; color:var(--db-muted); text-transform:uppercase;">' +
+        '<div>Rd</div><div>Player</div><div>Pos</div><div style="text-align:right;">VORP</div><div style="text-align:right;">ADP Rd</div><div>vs ADP</div><div>Timing</div></div>';
+
+      rows.forEach(r => {
+        const tag = r.delta != null ? gradeTag(r.delta) : { label: 'No ADP data', color: 'var(--db-muted)' };
+        const sTag = scarcityTag(r.dropoff);
+        html += '<div class="db-mono" style="display:grid; grid-template-columns:50px 1fr 40px 60px 60px 140px 150px; gap:8px; padding:8px 12px; border-top:0.5px solid var(--db-line-soft); font-size:12px; color:var(--db-chalk); align-items:center;">' +
+          '<div>' + r.round + '</div><div>' + r.name + '</div><div style="color:var(--db-muted);">' + r.pos + '</div>' +
+          '<div style="text-align:right;">' + (r.vorp != null ? r.vorp.toFixed(1) : '\u2014') + '</div>' +
+          '<div style="text-align:right; color:var(--db-muted);">' + (r.adpRound != null ? 'R' + r.adpRound : '\u2014') + '</div>' +
+          '<div style="color:' + tag.color + ';">' + tag.label + '</div>' +
+          '<div style="color:' + sTag.color + '; font-size:11px;">' + sTag.label + '</div></div>';
+      });
+      html += '</div>';
+
+      html += '<div class="db-mono" style="padding:12px 14px; background:var(--db-panel); border-top:0.5px solid var(--db-line); font-size:11px; color:var(--db-muted); line-height:1.6;">' + gradeContext(rows, avgDelta, grade, lineup.total, balance) + '</div>';
+      html += '</div>';
+
+      resultsEl.innerHTML = html;
+      resultsEl.style.display = 'block';
+      gradeStatusEl.textContent = 'Graded ' + rows.length + ' picks';
+    } catch (e) {
+      gradeStatusEl.textContent = 'Could not fetch picks \u2014 try again';
+    }
+  }
+
+  function connectSleeper(id) {
+    sleeperDraftId = id;
+    try { localStorage.setItem('sleeper-draft-id-2026', id); } catch (e) {}
+    sleeperBtnEl.textContent = 'Disconnect';
+    setSleeperStatus('Connecting...');
+    pollSleeperDraft();
+    sleeperInterval = setInterval(pollSleeperDraft, 4000);
+  }
+
+  function disconnectSleeper() {
+    sleeperDraftId = null;
+    clearInterval(sleeperInterval);
+    sleeperInterval = null;
+    sleeperBtnEl.textContent = 'Connect to Sleeper';
+    setSleeperStatus('');
+  }
+
+  sleeperBtnEl.addEventListener('click', () => {
+    if (sleeperInterval) {
+      disconnectSleeper();
+    } else {
+      const id = sleeperInputEl.value.trim();
+      if (id) connectSleeper(id);
+    }
+  });
+
+  document.getElementById('db-refresh-btn').addEventListener('click', () => {
+    if (sleeperDraftId) {
+      setSleeperStatus('Refreshing...');
+      pollSleeperDraft();
+    } else {
+      setSleeperStatus('Enter a draft ID and connect first');
+    }
+  });
+
+  document.getElementById('db-grade-btn').addEventListener('click', gradeMyDraft);
+
+  let gradeSectionOpen = false;
+  document.getElementById('db-grade-toggle').addEventListener('click', () => {
+    gradeSectionOpen = !gradeSectionOpen;
+    document.getElementById('db-grade-body').style.display = gradeSectionOpen ? 'block' : 'none';
+    document.getElementById('db-grade-chevron').style.transform = gradeSectionOpen ? 'rotate(90deg)' : 'rotate(0deg)';
+  });
+
+  document.getElementById('db-reset-btn').addEventListener('click', () => {
+    const ok = confirm('Reset the draft board? This clears every player\'s drafted status back to available. Your notes will NOT be affected.');
+    if (!ok) return;
+    drafted = {};
+    saveDrafted();
+    disconnectSleeper();
+    try { localStorage.removeItem('sleeper-draft-id-2026'); } catch (e) {}
+    sleeperInputEl.value = '';
+    document.getElementById('db-my-slot').value = '';
+    document.getElementById('db-grade-status').textContent = '';
+    document.getElementById('db-grade-results').style.display = 'none';
+    document.getElementById('db-grade-results').innerHTML = '';
+    render();
+  });
+
+  // --- General (non-player-specific) notes ---
+  const generalNotesEl = document.getElementById('db-general-notes');
+  const generalNotesToggle = document.getElementById('db-general-notes-toggle');
+  const generalNotesBody = document.getElementById('db-general-notes-body');
+  const generalNotesChevron = document.getElementById('db-general-notes-chevron');
+  const generalNotesDot = document.getElementById('db-general-notes-dot');
+
+  function loadGeneralNotes() {
+    try {
+      const val = localStorage.getItem('general-notes-2026') || '';
+      generalNotesEl.value = val;
+      generalNotesDot.style.display = val.trim() ? 'inline-block' : 'none';
+    } catch (e) {}
+  }
+
+  function saveGeneralNotes() {
+    try {
+      localStorage.setItem('general-notes-2026', generalNotesEl.value);
+      generalNotesDot.style.display = generalNotesEl.value.trim() ? 'inline-block' : 'none';
+    } catch (e) {}
+  }
+
+  let generalNotesOpen = false;
+  generalNotesToggle.addEventListener('click', () => {
+    generalNotesOpen = !generalNotesOpen;
+    generalNotesBody.style.display = generalNotesOpen ? 'block' : 'none';
+    generalNotesChevron.style.transform = generalNotesOpen ? 'rotate(90deg)' : 'rotate(0deg)';
+  });
+
+  generalNotesEl.addEventListener('blur', saveGeneralNotes);
+
+  loadGeneralNotes();
+
+  loadNotes();
+  loadDrafted();
+  loadTargets();
+  loadAvoided();
+  render();
+
+  try {
+    const savedId = localStorage.getItem('sleeper-draft-id-2026');
+    if (savedId) {
+      sleeperInputEl.value = savedId;
+      connectSleeper(savedId);
+    }
+  } catch (e) {}
+})();
+</script>
