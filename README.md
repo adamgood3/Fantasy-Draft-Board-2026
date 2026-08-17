@@ -38,8 +38,8 @@ Python, pandas, nflreadpy, matplotlib, vanilla HTML/CSS/JS (no framework) for th
 
 **Positional value decline by round** — confirms RB scarcity is far steeper than WR, directly informing the draft strategy:
 
-![Round decline chart](./docs/images/round_decline_chart.png)
+![Round decline chart](./docs/images/round_decline_chart.jpg)
 
 **A real draft grade** — the board's 4-component grading system evaluating an actual mock draft:
 
-![Draft grade example](./docs/images/draft_grade_example.png)
+![Draft grade example](./docs/images/draft_grade_example.jpg)
